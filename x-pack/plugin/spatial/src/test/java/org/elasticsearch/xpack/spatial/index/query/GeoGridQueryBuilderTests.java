@@ -278,7 +278,7 @@ public class GeoGridQueryBuilderTests extends AbstractQueryTestCase<GeoGridQuery
         );
     }
 
-    @AwaitsFix(bugUrl = "https://github.com/elastic/elasticsearch/issues/92611")
+    // @AwaitsFix(bugUrl = "https://github.com/elastic/elasticsearch/issues/92611")
     public void testBoundingBoxQuantize() {
         double lat = randomDoubleBetween(-GeoTileUtils.LATITUDE_MASK, GeoTileUtils.LATITUDE_MASK, true);
         double lon = randomDoubleBetween(-180d, 180d, true);
@@ -295,10 +295,59 @@ public class GeoGridQueryBuilderTests extends AbstractQueryTestCase<GeoGridQuery
         }
     }
 
+    public void testFailingBoundingBoxQuantize() {
+        double lat = 1.2642751956093434E-4;
+        double lon = -56.61524639579153;
+        double qLat = GeoEncodingUtils.decodeLatitude(GeoEncodingUtils.encodeLatitude(lat));
+        double qLon = GeoEncodingUtils.decodeLongitude(GeoEncodingUtils.encodeLongitude(lon));
+        int zoom = 22;
+        long tile = GeoTileUtils.longEncode(qLon, qLat, zoom);
+        Rectangle qRect = GeoGridQueryBuilder.getQueryTile(stringEncode(tile));
+        assertBoundingBox(tile, zoom, qLon, qLat, qRect);
+        assertBoundingBox(tile, zoom, qRect.getMinX(), qRect.getMinY(), qRect);
+        assertBoundingBox(tile, zoom, qRect.getMaxX(), qRect.getMinY(), qRect);
+        assertBoundingBox(tile, zoom, qRect.getMinX(), qRect.getMaxY(), qRect);
+        assertBoundingBox(tile, zoom, qRect.getMaxX(), qRect.getMaxY(), qRect);
+    }
+
     private void assertBoundingBox(long tile, int zoom, double lon, double lat, Rectangle r) {
         assertEquals(
+            "At zoom:" + zoom + " we expect POINT(" + lon + " " + lat + ") to match tile:" + tile,
             longEncode(lon, lat, zoom) == tile,
             org.apache.lucene.geo.Rectangle.containsPoint(lat, lon, r.getMinLat(), r.getMaxLat(), r.getMinLon(), r.getMaxLon())
         );
+    }
+
+    public void testBoundingBoxQuantizeFull() {
+
+        for (int zoom = 0; zoom <= MAX_ZOOM; zoom++) {
+            int tiles = 1 << zoom;
+            int count = 0;
+            for (int i = 0; i < tiles; i++) {
+                double lon = GeoTileUtils.tileToLon(i, tiles);
+                double qLon = GeoEncodingUtils.decodeLongitude(GeoEncodingUtils.encodeLongitude(lon));
+                assertEquals(i, GeoTileUtils.getXTile(qLon, tiles));
+                if (i > 0) {
+                    double prevQLon = GeoEncodingUtils.decodeLongitude(GeoEncodingUtils.encodeLongitude(lon) - 1);
+                    assertEquals(i - 1, GeoTileUtils.getXTile(prevQLon, tiles));
+                }
+                double lat = GeoTileUtils.tileToLat(i, tiles);
+                double qLat = GeoEncodingUtils.decodeLatitude(GeoEncodingUtils.encodeLatitude(lat));
+                if (i != GeoTileUtils.getYTile(qLat, tiles)) {
+                    count++;
+                    // System.out.println("maxX: " + zoom + "/" + i);
+                }
+                // assertEquals("" + zoom + "/" + i, i, GeoTileUtils.getYTile(qLat, tiles));
+                if (i > 0) {
+                    double prevQLat = GeoEncodingUtils.decodeLatitude(GeoEncodingUtils.encodeLatitude(lat) + 1);
+                    if (i - 1 != GeoTileUtils.getYTile(prevQLat, tiles)) {
+                        count++;
+                        // System.out.println("minX: " + zoom + "/" + i);
+                    }
+                    // assertEquals("" + zoom + "/" + i, i - 1, GeoTileUtils.getYTile(prevQLat, tiles));
+                }
+            }
+            System.out.println("zoom: " + zoom + " count: " + count);
+        }
     }
 }
