@@ -141,3 +141,38 @@ row a = ["1", "2"] | enrich languages_policy on a with a_lang = language_name;
 a:keyword   | a_lang:keyword
 ["1", "2"]  | ["English", "French"] 
 ;
+
+junk
+FROM sample_data
+| EVAL client_ip = TO_STRING(client_ip)
+| KEEP client_ip
+| LIMIT 1
+;
+
+client_ip:keyword
+172.21.3.15
+;
+
+
+spatialMatch
+FROM airport_city_boundaries
+| WHERE abbrev == "CJJ"
+| KEEP abbrev, city, city_location, country, location, name, airport
+;
+
+abbrev:keyword  |  city:keyword    |  city_location:geo_point |  country:keyword  |  location:geo_point                         |  name:text       |  airport:text
+CJJ             |  Cheongju        |  POINT(127.4833 36.6333) |  South Korea      |  POINT(127.495916124681 36.7220227766673)   |  Cheongju Int'l  |  Cheongju Int'l
+;
+
+
+spatialEnrichmentKeywordMatch
+FROM airports
+| WHERE abbrev == "CJJ"
+| ENRICH city_names ON city WITH airport
+| KEEP abbrev, city, city_location, country, location, name, airport
+;
+
+abbrev:keyword  |  city:keyword    |  city_location:geo_point |  country:keyword  |  location:geo_point                         |  name:text       |  airport:text
+CJJ             |  Cheongju        |  POINT(127.4833 36.6333) |  South Korea      |  POINT(127.495916124681 36.7220227766673)   |  Cheongju Int'l  |  Cheongju Int'l
+;
+
