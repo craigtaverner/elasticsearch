@@ -26,6 +26,7 @@ import org.elasticsearch.xpack.esql.core.type.InvalidMappedField;
 import org.elasticsearch.xpack.esql.core.type.KeywordEsField;
 import org.elasticsearch.xpack.esql.core.type.TextEsField;
 import org.elasticsearch.xpack.esql.core.type.UnsupportedEsField;
+import org.elasticsearch.xpack.esql.type.MultiTypeEsField;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -162,17 +163,23 @@ public class EsqlIndexResolver {
                 }
             }
             for (IndexFieldCapabilities fc : rest) {
-                if (type != typeRegistry.fromEs(fc.type(), fc.metricType())) {
-                    return conflictingTypes(name, fullName, fieldCapsResponse);
-                }
+                aggregatable &= fc.isAggregatable();
             }
             for (IndexFieldCapabilities fc : rest) {
-                aggregatable &= fc.isAggregatable();
+                if (type != typeRegistry.fromEs(fc.type(), fc.metricType())) {
+                    return conflictingTypes(name, fullName, aggregatable, fieldCapsResponse);
+                }
             }
         }
 
         // TODO I think we only care about unmapped fields if we're aggregating on them. do we even then?
+        if (type == UNSUPPORTED) {
+            return unsupported(name, first);
+        }
+        return createField(name, type, aggregatable, isAlias);
+    }
 
+    private EsField createField(String name, DataType type, boolean aggregatable, boolean isAlias) {
         if (type == TEXT) {
             return new TextEsField(name, new HashMap<>(), false, isAlias);
         }
@@ -185,9 +192,6 @@ public class EsqlIndexResolver {
         if (type == DATETIME) {
             return DateEsField.dateEsField(name, new HashMap<>(), aggregatable);
         }
-        if (type == UNSUPPORTED) {
-            return unsupported(name, first);
-        }
 
         return new EsField(name, type, new HashMap<>(), aggregatable, isAlias);
     }
@@ -197,7 +201,7 @@ public class EsqlIndexResolver {
         return new UnsupportedEsField(name, originalType);
     }
 
-    private EsField conflictingTypes(String name, String fullName, FieldCapabilitiesResponse fieldCapsResponse) {
+    private EsField conflictingTypes(String name, String fullName, boolean aggregatable, FieldCapabilitiesResponse fieldCapsResponse) {
         Map<String, Set<String>> typesToIndices = new TreeMap<>();
         for (FieldCapabilitiesIndexResponse ir : fieldCapsResponse.getIndexResponses()) {
             IndexFieldCapabilities fc = ir.get().get(fullName);
@@ -209,23 +213,7 @@ public class EsqlIndexResolver {
                 typesToIndices.computeIfAbsent(type.esType(), _key -> new TreeSet<>()).add(ir.getIndexName());
             }
         }
-        StringBuilder errorMessage = new StringBuilder();
-        errorMessage.append("mapped as [");
-        errorMessage.append(typesToIndices.size());
-        errorMessage.append("] incompatible types: ");
-        boolean first = true;
-        for (Map.Entry<String, Set<String>> e : typesToIndices.entrySet()) {
-            if (first) {
-                first = false;
-            } else {
-                errorMessage.append(", ");
-            }
-            errorMessage.append("[");
-            errorMessage.append(e.getKey());
-            errorMessage.append("] in ");
-            errorMessage.append(e.getValue());
-        }
-        return new InvalidMappedField(name, errorMessage.toString());
+        return new MultiTypeEsField.UnresolvedField(name, typesToIndices, aggregatable);
     }
 
     private EsField conflictingMetricTypes(String name, String fullName, FieldCapabilitiesResponse fieldCapsResponse) {

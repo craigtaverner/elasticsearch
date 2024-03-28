@@ -89,7 +89,7 @@ public class EsRelation extends LeafPlan {
 
     @Override
     public int hashCode() {
-        return Objects.hash(index, frozen);
+        return Objects.hash(index, attrs, frozen);
     }
 
     @Override
@@ -103,7 +103,7 @@ public class EsRelation extends LeafPlan {
         }
 
         EsRelation other = (EsRelation) obj;
-        return Objects.equals(index, other.index) && frozen == other.frozen;
+        return Objects.equals(index, other.index) && Objects.equals(attrs, other.attrs) && frozen == other.frozen;
     }
 
     @Override

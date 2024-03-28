@@ -382,7 +382,10 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         private void read(int doc) throws IOException {
             storedFields.advanceTo(doc);
             for (int f = 0; f < builders.length; f++) {
-                rowStride[f].read(doc, storedFields, builders[f]);
+                BlockLoader.Builder builder = (builders[f] instanceof BlockLoader.DelegatingBuilder delegatingBuilder)
+                    ? delegatingBuilder.delegate()
+                    : builders[f];
+                rowStride[f].read(doc, storedFields, builder);
             }
         }
 
