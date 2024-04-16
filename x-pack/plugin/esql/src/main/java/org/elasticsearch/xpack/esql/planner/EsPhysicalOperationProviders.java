@@ -94,6 +94,13 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
          * Returns something to load values from this field into a {@link Block}.
          */
         BlockLoader blockLoader(String name, boolean asUnsupportedSource, MappedFieldType.FieldExtractPreference fieldExtractPreference);
+
+        /**
+         * Supports block conversions
+         */
+        default Block convert(Block block) {
+            return block;
+        }
     }
 
     private final List<ShardContext> shardContexts;
@@ -377,7 +384,7 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         }
     }
 
-    static class TypeConvertingBlockLoader implements BlockLoader {
+    static class TypeConvertingBlockLoader implements BlockLoader, ValuesSourceReaderOperator.BlockConverter {
         protected final BlockLoader delegate;
         DriverContext driverContext;
         private EvalOperator.ExpressionEvaluator convertEvaluator;
@@ -394,6 +401,7 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             this.convertEvaluator = convertFunction.toEvaluator(e -> driverContext -> new EvalOperator.ExpressionEvaluator() {
                 @Override
                 public org.elasticsearch.compute.data.Block eval(Page page) {
+                    // TODO: Could we put the conversion here instead of in the block loader?
                     return page.getBlock(0);
                 }
 
@@ -404,8 +412,13 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
 
         @Override
         public Builder builder(BlockFactory factory, int expectedCount) {
-            Builder indexTypeBuilder = delegate.builder(factory, expectedCount);
-            return new OutputTypeBuilder(indexTypeBuilder, convertEvaluator);
+            return delegate.builder(factory, expectedCount);
+        }
+
+        public org.elasticsearch.compute.data.Block convert(org.elasticsearch.compute.data.Block block) {
+            Page page = new Page(block);
+            org.elasticsearch.compute.data.Block converted = convertEvaluator.eval(page);
+            return converted;
         }
 
         @Override
@@ -458,49 +471,6 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
                     return "Delegating[to=" + delegatingTo() + ", impl=" + reader + "]";
                 }
             };
-        }
-
-        private static class OutputTypeBuilder implements Builder, DelegatingBuilder {
-            private final Builder delegate;
-            private final EvalOperator.ExpressionEvaluator convertEvaluator;
-
-            private OutputTypeBuilder(Builder delegate, EvalOperator.ExpressionEvaluator convertEvaluator) {
-                this.delegate = delegate;
-                this.convertEvaluator = convertEvaluator;
-            }
-
-            @Override
-            public void close() {
-                delegate.close();
-            }
-
-            @Override
-            public Block build() {
-                Block fromIndex = delegate.build();
-                Page page = new Page((org.elasticsearch.compute.data.Block) fromIndex);
-                org.elasticsearch.compute.data.Block converted = convertEvaluator.eval(page);
-                return converted;
-            }
-
-            @Override
-            public Builder appendNull() {
-                return delegate.appendNull();
-            }
-
-            @Override
-            public Builder beginPositionEntry() {
-                return delegate.beginPositionEntry();
-            }
-
-            @Override
-            public Builder endPositionEntry() {
-                return delegate.endPositionEntry();
-            }
-
-            @Override
-            public Builder delegate() {
-                return delegate;
-            }
         }
 
         @Override
