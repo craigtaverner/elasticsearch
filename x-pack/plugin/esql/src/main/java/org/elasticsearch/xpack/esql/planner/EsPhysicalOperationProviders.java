@@ -94,13 +94,6 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
          * Returns something to load values from this field into a {@link Block}.
          */
         BlockLoader blockLoader(String name, boolean asUnsupportedSource, MappedFieldType.FieldExtractPreference fieldExtractPreference);
-
-        /**
-         * Supports block conversions
-         */
-        default Block convert(Block block) {
-            return block;
-        }
     }
 
     private final List<ShardContext> shardContexts;
