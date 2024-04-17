@@ -1087,28 +1087,19 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         @Override
         protected LogicalPlan doRule(LogicalPlan plan) {
             List<FieldAttribute> unionFieldAttributes = new ArrayList<>();
-            // TODO: remove requirement for EVAL, since conversion expression can appear in other commands
-            if (plan instanceof Eval eval) {
-                // See if the eval function has an unresolved MultiTypeEsField field
-                // Replace the entire convert function with a new FieldAttribute (containing type conversion knowledge)
-                plan = eval.transformExpressionsOnly(
-                    AbstractConvertFunction.class,
-                    convert -> resolveConvertFunction(convert, unionFieldAttributes)
-                );
-            }
+            // See if the eval function has an unresolved MultiTypeEsField field
+            // Replace the entire convert function with a new FieldAttribute (containing type conversion knowledge)
+            plan = plan.transformExpressionsOnly(
+                AbstractConvertFunction.class,
+                convert -> resolveConvertFunction(convert, unionFieldAttributes)
+            );
             // If no union fields were generated, return the plan as is
             if (unionFieldAttributes.isEmpty()) {
                 return plan;
             }
-            // Otherwise, add generated fields to EsRelation
+            // Otherwise, add generated fields to EsRelation, so these new attributes will appear in the OutputExec of the Fragment
+            // and thereby get used in FieldExtractExec
             plan = plan.transformDown(EsRelation.class, esr -> {
-                // EsIndex index = esRelation.index();
-                // index.mapping()
-                // .replaceAll(
-                // (name, field) -> (field instanceof MultiTypeEsField.UnresolvedField mtf && expressionMap.containsKey(mtf))
-                // ? expressionMap.get(mtf)
-                // : field
-                // );
                 List<Attribute> output = esr.output();
                 List<Attribute> missing = new ArrayList<>();
                 for (FieldAttribute fa : unionFieldAttributes) {
@@ -1180,7 +1171,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     }
 
     /**
-     * If there was no Eval that resolved multi-type fields in the ResolveUnionTypes rules,
+     * If there was no AbstractConvertFunction that resolved multi-type fields in the ResolveUnionTypes rules,
      * then there could still be some FieldAttributes that contain unresolved MultiTypeEsFields.
      * These need to be converted back to actual UnresolvedAttribute in order for validation to generate appropriate failures.
      */
