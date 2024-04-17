@@ -1157,16 +1157,10 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             DataType type,
             MultiTypeEsField.UnresolvedField mtf
         ) {
-            return typeSpecificConvert(convert, source, new EsField(mtf.getName(), type, mtf.getProperties(), mtf.isAggregatable()));
-        }
-
-        private Expression typeSpecificConvert(AbstractConvertFunction convert, Source source, EsField field) {
-            FieldAttribute resolvedAttr = fieldAttribute(source, field.getName(), field, ((FieldAttribute) convert.field()).id());
+            EsField field = new EsField(mtf.getName(), type, mtf.getProperties(), mtf.isAggregatable());
+            NameId id = ((FieldAttribute) convert.field()).id();
+            FieldAttribute resolvedAttr = new FieldAttribute(source, null, field.getName(), field, null, Nullability.TRUE, id, false);
             return convert.replaceChildren(Collections.singletonList(resolvedAttr));
-        }
-
-        private FieldAttribute fieldAttribute(Source source, String name, EsField resolvedField, NameId id) {
-            return new FieldAttribute(source, null, name, resolvedField, null, Nullability.TRUE, id, false);
         }
     }
 
