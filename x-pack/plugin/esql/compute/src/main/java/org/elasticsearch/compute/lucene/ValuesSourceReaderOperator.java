@@ -362,11 +362,10 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                 verifyBuilders(loaderBlockFactory, shard);
                 read(docs.getInt(p), shard);
             }
-            for (int f = 0; f < builders.length; f++) {
+            for (int f = 0; f < target.length; f++) {
                 for (int s = 0; s < shardContexts.size(); s++) {
                     if (builders[f][s] != null) {
-                        try (Block orig = builders[f][s].build()) {
-                            Block converted = fields[f].convert.convert(orig.filter(backwards));
+                        try (Block orig = builders[f][s].build(); Block converted = fields[f].convert.convert(orig.filter(backwards))) {
                             fieldTypeBuilders[f].copyFrom(converted, 0, converted.getTotalValueCount());
                         }
                     }
@@ -394,6 +393,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         private void verifyBuilders(ComputeBlockLoaderFactory loaderBlockFactory, int shard) {
             for (int f = 0; f < fields.length; f++) {
                 if (builders[f][shard] == null) {
+                    // Note that this relies on field.newShard() to set the loader correctly for the current shard
                     builders[f][shard] = (Block.Builder) fields[f].loader.builder(loaderBlockFactory, docs.getPositionCount());
                 }
             }
