@@ -366,7 +366,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                 for (int s = 0; s < shardContexts.size(); s++) {
                     if (builders[f][s] != null) {
                         try (Block orig = builders[f][s].build(); Block converted = fields[f].convert.convert(orig.filter(backwards))) {
-                            fieldTypeBuilders[f].copyFrom(converted, 0, converted.getTotalValueCount());
+                            fieldTypeBuilders[f].copyFrom(converted, 0, converted.getPositionCount());
                         }
                     }
                 }
