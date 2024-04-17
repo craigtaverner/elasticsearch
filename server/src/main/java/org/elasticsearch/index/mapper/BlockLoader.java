@@ -132,10 +132,6 @@ public interface BlockLoader {
         }
     };
 
-    interface DelegatingBuilder {
-        BlockLoader.Builder delegate();
-    }
-
     /**
      * Implementation of {@link ColumnAtATimeReader} and {@link RowStrideReader} that always
      * loads {@code null}.
