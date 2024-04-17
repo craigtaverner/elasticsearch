@@ -1184,7 +1184,6 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
      * then there could still be some FieldAttributes that contain unresolved MultiTypeEsFields.
      * These need to be converted back to actual UnresolvedAttribute in order for validation to generate appropriate failures.
      */
-    // TODO: This entire rule can probably be removed, since we no longer modify the original attributes
     private static class UnresolveUnionTypes extends AnalyzerRules.AnalyzerRule<LogicalPlan> {
         @Override
         protected boolean skipResolved() {
@@ -1193,23 +1192,10 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
         @Override
         protected LogicalPlan rule(LogicalPlan plan) {
-            if (plan instanceof EsRelation esRelation) {
-                // Leave esRelation as InvalidMappedField so that UNSUPPORTED fields can still pass through
-                return esRelation.transformExpressionsOnly(FieldAttribute.class, UnresolveUnionTypes::checkUnresolvedRelation);
-            }
             return plan.transformExpressionsOnly(FieldAttribute.class, UnresolveUnionTypes::checkUnresolved);
         }
 
         private static Attribute checkUnresolved(FieldAttribute fa) {
-            var field = fa.field();
-            if (field instanceof MultiTypeEsField.UnresolvedField imf) {
-                String unresolvedMessage = "Cannot use field [" + fa.name() + "] due to ambiguities being " + imf.errorMessage();
-                return new UnresolvedAttribute(fa.source(), fa.name(), fa.qualifier(), fa.id(), unresolvedMessage, null);
-            }
-            return fa;
-        }
-
-        private static Attribute checkUnresolvedRelation(FieldAttribute fa) {
             var field = fa.field();
             if (field instanceof MultiTypeEsField.UnresolvedField imf) {
                 String unresolvedMessage = "Cannot use field [" + fa.name() + "] due to ambiguities being " + imf.errorMessage();
