@@ -1,5 +1,5 @@
 pr: 107545
-summary: "ESQL: Union Types Support (take3)"
+summary: "ESQL: Union Types Support"
 area: ES|QL
 type: enhancement
 issues:
