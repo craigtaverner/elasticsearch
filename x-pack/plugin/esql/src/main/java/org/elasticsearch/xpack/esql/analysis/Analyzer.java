@@ -1178,15 +1178,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         @Override
         protected LogicalPlan rule(LogicalPlan plan) {
             if (plan instanceof EsRelation esRelation) {
-                EsIndex index = esRelation.index();
-                index.mapping()
-                    .replaceAll(
-                        (name, field) -> (field instanceof MultiTypeEsField.UnresolvedField mtf)
-                            ? new EsField(mtf.getName(), DataTypes.UNSUPPORTED, mtf.getProperties(), mtf.isAggregatable())
-                            : field
-                    );
                 // Leave esRelation as InvalidMappedField so that UNSUPPORTED fields can still pass through
-                return esRelation.transformExpressionsOnly(FieldAttribute.class, UnresolveUnionTypes::checkUnresolvedRelation);
+                return esRelation;
             }
             return plan.transformExpressionsOnly(FieldAttribute.class, UnresolveUnionTypes::checkUnresolved);
         }
@@ -1196,14 +1189,6 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             if (field instanceof MultiTypeEsField.UnresolvedField imf) {
                 String unresolvedMessage = "Cannot use field [" + fa.name() + "] due to ambiguities being " + imf.errorMessage();
                 return new UnresolvedAttribute(fa.source(), fa.name(), fa.qualifier(), fa.id(), unresolvedMessage, null);
-            }
-            return fa;
-        }
-
-        private static Attribute checkUnresolvedRelation(FieldAttribute fa) {
-            var field = fa.field();
-            if (field instanceof MultiTypeEsField.UnresolvedField imf) {
-                return fa.withField(new InvalidMappedField(imf.getName(), imf.errorMessage()));
             }
             return fa;
         }
