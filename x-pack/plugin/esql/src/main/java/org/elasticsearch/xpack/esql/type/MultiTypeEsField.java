@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * During IndexResolution it could occur that the same field is mapped to different types in different indices.
@@ -59,66 +58,31 @@ public class MultiTypeEsField extends EsField {
         return indexToConversionExpressions.get(indexName);
     }
 
-    /**
-     * During IndexResolution it could occur that the same field is mapped to different types in different indices.
-     * This class holds that information and allows for later resolution of the field to a single type during LogicalPlanOptimization.
-     * If the plan contains conversion expressions for the different types, the resolution will be done using the conversion expressions,
-     * in which case a MultiTypeEsField will be created to encapsulate the type resolution.
-     * If type resolution is not possible, due to the plan not containing explicit type conversion functions, then this class will
-     * be used to communicate the type resolution failure, since it's parent class is InvalidMappedField.
-     */
-    public static class UnresolvedField extends InvalidMappedField {
-        private final Map<String, Set<String>> typesToIndices;
-        private final boolean aggregatable;
-
-        public UnresolvedField(String name, Map<String, Set<String>> typesToIndices, boolean aggregatable) {
-            super(name, makeErrorMessage(typesToIndices), new TreeMap<>());
-            this.typesToIndices = typesToIndices;
-            this.aggregatable = aggregatable;
-        }
-
-        private static String makeErrorMessage(Map<String, Set<String>> typesToIndices) {
-            StringBuilder errorMessage = new StringBuilder();
-            errorMessage.append("mapped as [");
-            errorMessage.append(typesToIndices.size());
-            errorMessage.append("] incompatible types: ");
-            boolean first = true;
-            for (Map.Entry<String, Set<String>> e : typesToIndices.entrySet()) {
-                if (first) {
-                    first = false;
-                } else {
-                    errorMessage.append(", ");
-                }
-                errorMessage.append("[");
-                errorMessage.append(e.getKey());
-                errorMessage.append("] in ");
-                errorMessage.append(e.getValue());
+    public static MultiTypeEsField resolveFrom(
+        InvalidMappedField invalidMappedField,
+        Map<String, Expression> typesToConversionExpressions
+    ) {
+        Map<String, Set<String>> typesToIndices = invalidMappedField.getTypesToIndices();
+        DataType resolvedDataType = DataType.UNSUPPORTED;
+        Map<String, Expression> indexToConversionExpressions = new HashMap<>();
+        for (String typeName : typesToIndices.keySet()) {
+            Set<String> indices = typesToIndices.get(typeName);
+            Expression convertExpr = typesToConversionExpressions.get(typeName);
+            if (resolvedDataType == DataType.UNSUPPORTED) {
+                resolvedDataType = convertExpr.dataType();
+            } else if (resolvedDataType != convertExpr.dataType()) {
+                throw new IllegalArgumentException("Resolved data type mismatch: " + resolvedDataType + " != " + convertExpr.dataType());
             }
-            return errorMessage.toString();
-        }
 
-        public MultiTypeEsField resolve(Map<String, Expression> typesToConversionExpressions) {
-            DataType resolvedDataType = DataType.UNSUPPORTED;
-            Map<String, Expression> indexToConversionExpressions = new HashMap<>();
-            for (String typeName : typesToIndices.keySet()) {
-                Set<String> indices = typesToIndices.get(typeName);
-                Expression convertExpr = typesToConversionExpressions.get(typeName);
-                if (resolvedDataType == DataType.UNSUPPORTED) {
-                    resolvedDataType = convertExpr.dataType();
-                } else if (resolvedDataType != convertExpr.dataType()) {
-                    throw new IllegalArgumentException(
-                        "Resolved data type mismatch: " + resolvedDataType + " != " + convertExpr.dataType()
-                    );
-                }
-                for (String indexName : indices) {
-                    indexToConversionExpressions.put(indexName, convertExpr);
-                }
+            for (String indexName : indices) {
+                indexToConversionExpressions.put(indexName, convertExpr);
             }
-            return new MultiTypeEsField(getName(), resolvedDataType, aggregatable, indexToConversionExpressions);
         }
-
-        public Map<String, Set<String>> getTypesToIndices() {
-            return typesToIndices;
-        }
+        return new MultiTypeEsField(
+            invalidMappedField.getName(),
+            resolvedDataType,
+            invalidMappedField.isAggregatable(),
+            indexToConversionExpressions
+        );
     }
 }

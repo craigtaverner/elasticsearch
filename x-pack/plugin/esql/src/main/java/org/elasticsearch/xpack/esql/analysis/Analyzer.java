@@ -860,14 +860,6 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     }
 
     private static Attribute handleSpecialFields(UnresolvedAttribute u, Attribute named) {
-        if (named instanceof FieldAttribute fa) {
-            // incompatible mappings
-            var field = fa.field();
-            if (field instanceof InvalidMappedField imf && (field instanceof MultiTypeEsField.UnresolvedField) == false) {
-                named = u.withUnresolvedMessage("Cannot use field [" + fa.name() + "] due to ambiguities being " + imf.errorMessage());
-            }
-        }
-
         return named.withLocation(u.source());
     }
 
@@ -1117,7 +1109,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         }
 
         private Expression resolveConvertFunction(AbstractConvertFunction convert, List<FieldAttribute> unionFieldAttributes) {
-            if (convert.field() instanceof FieldAttribute fa && fa.field() instanceof MultiTypeEsField.UnresolvedField mtf) {
+            if (convert.field() instanceof FieldAttribute fa && fa.field() instanceof InvalidMappedField mtf) {
                 HashMap<TypeResolutionKey, Expression> typeResolutions = new HashMap<>();
                 mtf.getTypesToIndices().keySet().forEach(typeName -> {
                     DataType type = DataType.fromTypeName(typeName);
@@ -1136,10 +1128,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return convert;
         }
 
-        private MultiTypeEsField resolvedMultiTypeEsField(
-            MultiTypeEsField.UnresolvedField mtf,
-            HashMap<TypeResolutionKey, Expression> typeResolutions
-        ) {
+        private MultiTypeEsField resolvedMultiTypeEsField(InvalidMappedField mtf, HashMap<TypeResolutionKey, Expression> typeResolutions) {
             Map<String, Expression> typesToConversionExpressions = new HashMap<>();
             mtf.getTypesToIndices().forEach((typeName, indexNames) -> {
                 DataType type = DataType.fromTypeName(typeName);
@@ -1148,15 +1137,10 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     typesToConversionExpressions.put(typeName, typeResolutions.get(key));
                 }
             });
-            return mtf.resolve(typesToConversionExpressions);
+            return MultiTypeEsField.resolveFrom(mtf, typesToConversionExpressions);
         }
 
-        private Expression typeSpecificConvert(
-            AbstractConvertFunction convert,
-            Source source,
-            DataType type,
-            MultiTypeEsField.UnresolvedField mtf
-        ) {
+        private Expression typeSpecificConvert(AbstractConvertFunction convert, Source source, DataType type, InvalidMappedField mtf) {
             EsField field = new EsField(mtf.getName(), type, mtf.getProperties(), mtf.isAggregatable());
             NameId id = ((FieldAttribute) convert.field()).id();
             FieldAttribute resolvedAttr = new FieldAttribute(source, null, field.getName(), field, null, Nullability.TRUE, id, false);
@@ -1186,7 +1170,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
         private static Attribute checkUnresolved(FieldAttribute fa) {
             var field = fa.field();
-            if (field instanceof MultiTypeEsField.UnresolvedField imf) {
+            if (field instanceof InvalidMappedField imf) {
                 String unresolvedMessage = "Cannot use field [" + fa.name() + "] due to ambiguities being " + imf.errorMessage();
                 return new UnresolvedAttribute(fa.source(), fa.name(), fa.qualifier(), fa.id(), unresolvedMessage, null);
             }
