@@ -1,7 +1,7 @@
 setup:
   - skip:
-      version: " - 8.13.99"
-      reason: "Union types introduced in 8.14.0"
+      version: " - 8.14.99"
+      reason: "Union types introduced in 8.15.0"
       features: allowed_warnings_regex
 
   - do:
