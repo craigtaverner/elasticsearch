@@ -22,6 +22,7 @@ public class InvalidMappedField extends EsField {
 
     private final String errorMessage;
     private final Map<String, Set<String>> typesToIndices;
+    private final boolean aggregatableIfMultiValuedResolved;    // Only capture aggregatable value for MultiTypeEsField
 
     public InvalidMappedField(String name, String errorMessage, Map<String, EsField> properties) {
         this(name, errorMessage, properties, Map.of(), false);
@@ -38,8 +39,8 @@ public class InvalidMappedField extends EsField {
     /**
      * Constructor supporting union types, used in ES|QL.
      */
-    public InvalidMappedField(String name, Map<String, Set<String>> typesToIndices, boolean aggregatable) {
-        this(name, makeErrorMessage(typesToIndices), new TreeMap<>(), typesToIndices, aggregatable);
+    public InvalidMappedField(String name, Map<String, Set<String>> typesToIndices, boolean aggregatableIfMultiValuedResolved) {
+        this(name, makeErrorMessage(typesToIndices), new TreeMap<>(), typesToIndices, aggregatableIfMultiValuedResolved);
     }
 
     private InvalidMappedField(
@@ -47,11 +48,12 @@ public class InvalidMappedField extends EsField {
         String errorMessage,
         Map<String, EsField> properties,
         Map<String, Set<String>> typesToIndices,
-        boolean aggregatable
+        boolean aggregatableIfMultiValuedResolved
     ) {
-        super(name, DataTypes.UNSUPPORTED, properties, aggregatable);
+        super(name, DataTypes.UNSUPPORTED, properties, false);
         this.errorMessage = errorMessage;
         this.typesToIndices = typesToIndices;
+        this.aggregatableIfMultiValuedResolved = aggregatableIfMultiValuedResolved;
     }
 
     private static String makeErrorMessage(Map<String, Set<String>> typesToIndices) {
@@ -72,6 +74,10 @@ public class InvalidMappedField extends EsField {
             errorMessage.append(e.getValue());
         }
         return errorMessage.toString();
+    }
+
+    public boolean isAggregatableIfMultiValuedResolved() {
+        return aggregatableIfMultiValuedResolved;
     }
 
     public Map<String, Set<String>> getTypesToIndices() {
