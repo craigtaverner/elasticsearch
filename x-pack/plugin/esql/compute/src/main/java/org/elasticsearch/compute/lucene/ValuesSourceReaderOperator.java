@@ -233,6 +233,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                         new RowStrideReaderWork(
                             field.rowStride(ctx),
                             (Block.Builder) field.loader.builder(loaderBlockFactory, docs.count()),
+                            field.convert,
                             f
                         )
                     );
@@ -262,17 +263,13 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
             );
             for (int p = 0; p < docs.count(); p++) {
                 int doc = docs.get(p);
-                if (storedFields != null) {
-                    storedFields.advanceTo(doc);
-                }
-                for (int r = 0; r < rowStrideReaders.size(); r++) {
-                    RowStrideReaderWork work = rowStrideReaders.get(r);
-                    work.reader.read(doc, storedFields, work.builder);
+                storedFields.advanceTo(doc);
+                for (RowStrideReaderWork work : rowStrideReaders) {
+                    work.read(doc, storedFields);
                 }
             }
-            for (int r = 0; r < rowStrideReaders.size(); r++) {
-                RowStrideReaderWork work = rowStrideReaders.get(r);
-                blocks[work.offset] = work.builder.build();
+            for (RowStrideReaderWork work : rowStrideReaders) {
+                blocks[work.offset] = work.build();
             }
         } finally {
             Releasables.close(rowStrideReaders);
@@ -365,12 +362,14 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
             for (int f = 0; f < target.length; f++) {
                 for (int s = 0; s < shardContexts.size(); s++) {
                     if (builders[f][s] != null) {
-                        try (Block orig = builders[f][s].build(); Block converted = fields[f].convert.convert(orig.filter(backwards))) {
-                            fieldTypeBuilders[f].copyFrom(converted, 0, converted.getPositionCount());
+                        try (Block orig = fields[f].convert.convert(builders[f][s].build())) {
+                            fieldTypeBuilders[f].copyFrom(orig, 0, orig.getPositionCount());
                         }
                     }
                 }
-                target[f] = fieldTypeBuilders[f].build();
+                try (Block targetBlock = fieldTypeBuilders[f].build()) {
+                    target[f] = targetBlock.filter(backwards);
+                }
             }
         }
 
@@ -502,7 +501,17 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         }
     }
 
-    private record RowStrideReaderWork(BlockLoader.RowStrideReader reader, Block.Builder builder, int offset) implements Releasable {
+    private record RowStrideReaderWork(BlockLoader.RowStrideReader reader, Block.Builder builder, BlockConverter convert, int offset)
+        implements
+            Releasable {
+        void read(int doc, BlockLoaderStoredFieldsFromLeafLoader storedFields) throws IOException {
+            reader.read(doc, storedFields, builder);
+        }
+
+        Block build() {
+            return convert.convert(builder.build());
+        }
+
         @Override
         public void close() {
             builder.close();

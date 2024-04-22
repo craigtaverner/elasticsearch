@@ -2,6 +2,7 @@ singleIndexIp
 FROM sample_data
 | EVAL client_ip = TO_IP(client_ip)
 | KEEP @timestamp, client_ip, event_duration, message
+| SORT @timestamp DESC
 ;
 
 @timestamp:date           |  client_ip:ip  |  event_duration:long  |  message:keyword
