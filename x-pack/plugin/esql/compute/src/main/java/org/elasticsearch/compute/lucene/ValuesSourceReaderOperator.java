@@ -165,6 +165,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                 }
             }
             success = true;
+            return page.appendBlocks(blocks);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } finally {
@@ -172,7 +173,6 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                 Releasables.closeExpectNoException(blocks);
             }
         }
-        return page.appendBlocks(blocks);
     }
 
     private void positionFieldWork(int shard, int segment, int firstDoc) {
