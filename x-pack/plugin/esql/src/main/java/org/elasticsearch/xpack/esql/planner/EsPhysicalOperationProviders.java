@@ -405,21 +405,13 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
 
         @Override
         public Builder builder(BlockFactory factory, int expectedCount) {
+            // Return the delegates builder, which can build the original mapped type, before conversion
             return delegate.builder(factory, expectedCount);
         }
 
         public org.elasticsearch.compute.data.Block convert(org.elasticsearch.compute.data.Block block) {
             Page page = new Page(block);
-            org.elasticsearch.compute.data.Block converted = convertEvaluator.eval(page);
-            if (converted.getPositionCount() != block.getPositionCount()) {
-                throw new IllegalArgumentException(
-                    "Conversion must not change the number of rows: incoming="
-                        + block.getPositionCount()
-                        + ", outgoing="
-                        + converted.getPositionCount()
-                );
-            }
-            return converted;
+            return convertEvaluator.eval(page);
         }
 
         @Override
