@@ -134,15 +134,13 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         MultiTypeEsField unionTypes
     ) {
         DefaultShardContext shardContext = (DefaultShardContext) shardContexts.get(shardId);
+        BlockLoader blockLoader = shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference);
         if (unionTypes != null && unionTypes.getName().equals(fieldName)) {
             String indexName = shardContext.ctx.index().getName();
             Expression conversion = unionTypes.getConversionExpressionForIndex(indexName);
-            return new TypeConvertingBlockLoader(
-                shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference),
-                (AbstractConvertFunction) conversion
-            );
+            return new TypeConvertingBlockLoader(blockLoader, (AbstractConvertFunction) conversion);
         }
-        return shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference);
+        return blockLoader;
     }
 
     private MultiTypeEsField findUnionTypes(Attribute attr) {
@@ -363,12 +361,11 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
 
     static class TypeConvertingBlockLoader implements BlockLoader {
         protected final BlockLoader delegate;
-        DriverContext driverContext;
-        private EvalOperator.ExpressionEvaluator convertEvaluator;
+        private final EvalOperator.ExpressionEvaluator convertEvaluator;
 
         protected TypeConvertingBlockLoader(BlockLoader delegate, AbstractConvertFunction convertFunction) {
             this.delegate = delegate;
-            this.driverContext = new DriverContext(
+            DriverContext driverContext1 = new DriverContext(
                 BigArrays.NON_RECYCLING_INSTANCE,
                 new org.elasticsearch.compute.data.BlockFactory(
                     new NoopCircuitBreaker(CircuitBreaker.REQUEST),
@@ -378,13 +375,13 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             this.convertEvaluator = convertFunction.toEvaluator(e -> driverContext -> new EvalOperator.ExpressionEvaluator() {
                 @Override
                 public org.elasticsearch.compute.data.Block eval(Page page) {
-                    // TODO: Could we put the conversion here instead of in the block loader?
+                    // This is a pass-through evaluator, since it sits directly on the source loading (no prior expressions)
                     return page.getBlock(0);
                 }
 
                 @Override
                 public void close() {}
-            }).get(driverContext);
+            }).get(driverContext1);
         }
 
         @Override
@@ -421,34 +418,16 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
 
                 @Override
                 public String toString() {
-                    return "Delegating[to=" + delegatingTo() + ", impl=" + reader + "]";
+                    return reader.toString();
                 }
             };
         }
 
         @Override
         public RowStrideReader rowStrideReader(LeafReaderContext context) throws IOException {
-            RowStrideReader reader = delegate.rowStrideReader(context);
-            if (reader == null) {
-                return null;
-            }
-            return new RowStrideReader() {
-                @Override
-                public void read(int docId, StoredFields storedFields, Builder builder) throws IOException {
-                    // TODO: Support union-types
-                    reader.read(docId, storedFields, builder);
-                }
-
-                @Override
-                public boolean canReuse(int startingDocID) {
-                    return reader.canReuse(startingDocID);
-                }
-
-                @Override
-                public String toString() {
-                    return "Delegating[to=" + delegatingTo() + ", impl=" + reader + "]";
-                }
-            };
+            // We do no type conversion here, since that will be done in the ValueSourceReaderOperator for row-stride cases
+            // Using the BlockLoader.convert(Block) function defined above
+            return delegate.rowStrideReader(context);
         }
 
         @Override
@@ -466,13 +445,9 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             return delegate.ordinals(context);
         }
 
-        protected String delegatingTo() {
-            return delegate.toString();
-        }
-
         @Override
         public final String toString() {
-            return "Delegating[to=" + delegatingTo() + ", impl=" + delegate + "]";
+            return "TypeConvertingBlockLoader[delegate=" + delegate + "]";
         }
     }
 }
