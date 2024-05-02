@@ -137,8 +137,10 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         if (unionTypes != null && unionTypes.getName().equals(fieldName)) {
             String indexName = shardContext.ctx.index().getName();
             Expression conversion = unionTypes.getConversionExpressionForIndex(indexName);
-            var typeConvertingShardContext = new TypeConvertingShardContext(shardContext, (AbstractConvertFunction) conversion);
-            return typeConvertingShardContext.blockLoader(fieldName, isSupported, fieldExtractPreference);
+            return new TypeConvertingBlockLoader(
+                shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference),
+                (AbstractConvertFunction) conversion
+            );
         }
         return shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference);
     }
@@ -359,25 +361,7 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         }
     }
 
-    public static class TypeConvertingShardContext extends DefaultShardContext {
-        private final AbstractConvertFunction convertFunction;
-
-        public TypeConvertingShardContext(DefaultShardContext delegate, AbstractConvertFunction convertFunction) {
-            super(delegate.index, delegate.ctx, delegate.aliasFilter);
-            this.convertFunction = convertFunction;
-        }
-
-        @Override
-        public BlockLoader blockLoader(
-            String name,
-            boolean asUnsupportedSource,
-            MappedFieldType.FieldExtractPreference fieldExtractPreference
-        ) {
-            return new TypeConvertingBlockLoader(super.blockLoader(name, asUnsupportedSource, fieldExtractPreference), convertFunction);
-        }
-    }
-
-    static class TypeConvertingBlockLoader implements BlockLoader, ValuesSourceReaderOperator.BlockConverter {
+    static class TypeConvertingBlockLoader implements BlockLoader {
         protected final BlockLoader delegate;
         DriverContext driverContext;
         private EvalOperator.ExpressionEvaluator convertEvaluator;
@@ -409,8 +393,9 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             return delegate.builder(factory, expectedCount);
         }
 
-        public org.elasticsearch.compute.data.Block convert(org.elasticsearch.compute.data.Block block) {
-            Page page = new Page(block);
+        @Override
+        public Block convert(Block block) {
+            Page page = new Page((org.elasticsearch.compute.data.Block) block);
             return convertEvaluator.eval(page);
         }
 

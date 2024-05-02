@@ -233,7 +233,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                         new RowStrideReaderWork(
                             field.rowStride(ctx),
                             (Block.Builder) field.loader.builder(loaderBlockFactory, docs.count()),
-                            field.convert,
+                            field.loader,
                             f
                         )
                     );
@@ -308,7 +308,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         private final int[] forwards;
         private final int[] backwards;
         private final Block.Builder[][] builders;
-        private final BlockConverter[][] converters;
+        private final BlockLoader[][] converters;
         private final Block.Builder[] fieldTypeBuilders;
         private final BlockLoader.RowStrideReader[] rowStride;
 
@@ -323,7 +323,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
             backwards = docVector.shardSegmentDocMapBackwards();
             fieldTypeBuilders = new Block.Builder[target.length];
             builders = new Block.Builder[target.length][shardContexts.size()];
-            converters = new BlockConverter[target.length][shardContexts.size()];
+            converters = new BlockLoader[target.length][shardContexts.size()];
             rowStride = new BlockLoader.RowStrideReader[target.length];
         }
 
@@ -338,7 +338,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                  */
                 fieldTypeBuilders[f] = fields[f].info.type.newBlockBuilder(docs.getPositionCount(), blockFactory);
                 builders[f] = new Block.Builder[shardContexts.size()];
-                converters[f] = new BlockConverter[shardContexts.size()];
+                converters[f] = new BlockLoader[shardContexts.size()];
             }
             ComputeBlockLoaderFactory loaderBlockFactory = new ComputeBlockLoaderFactory(blockFactory, docs.getPositionCount());
             int p = forwards[0];
@@ -365,7 +365,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
             for (int f = 0; f < target.length; f++) {
                 for (int s = 0; s < shardContexts.size(); s++) {
                     if (builders[f][s] != null) {
-                        try (Block orig = converters[f][s].convert(builders[f][s].build())) {
+                        try (Block orig = (Block) converters[f][s].convert(builders[f][s].build())) {
                             fieldTypeBuilders[f].copyFrom(orig, 0, orig.getPositionCount());
                         }
                     }
@@ -397,7 +397,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
                 if (builders[f][shard] == null) {
                     // Note that this relies on field.newShard() to set the loader and converter correctly for the current shard
                     builders[f][shard] = (Block.Builder) fields[f].loader.builder(loaderBlockFactory, docs.getPositionCount());
-                    converters[f][shard] = fields[f].convert;
+                    converters[f][shard] = fields[f].loader;
                 }
             }
         }
@@ -442,18 +442,12 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         );
     }
 
-    @FunctionalInterface
-    public interface BlockConverter {
-        Block convert(Block block);
-    }
-
     private class FieldWork {
         final FieldInfo info;
 
         BlockLoader loader;
         BlockLoader.ColumnAtATimeReader columnAtATime;
         BlockLoader.RowStrideReader rowStride;
-        BlockConverter convert = l -> l;
 
         FieldWork(FieldInfo info) {
             this.info = info;
@@ -475,11 +469,6 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
 
         void newShard(int shard) {
             loader = info.blockLoader.apply(shard);
-            if (loader instanceof BlockConverter blockConverter) {
-                convert = blockConverter;
-            } else {
-                convert = l -> l;
-            }
             columnAtATime = null;
             rowStride = null;
         }
@@ -505,7 +494,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         }
     }
 
-    private record RowStrideReaderWork(BlockLoader.RowStrideReader reader, Block.Builder builder, BlockConverter convert, int offset)
+    private record RowStrideReaderWork(BlockLoader.RowStrideReader reader, Block.Builder builder, BlockLoader loader, int offset)
         implements
             Releasable {
         void read(int doc, BlockLoaderStoredFieldsFromLeafLoader storedFields) throws IOException {
@@ -513,7 +502,7 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         }
 
         Block build() {
-            return convert.convert(builder.build());
+            return (Block) loader.convert(builder.build());
         }
 
         @Override
