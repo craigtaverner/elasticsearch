@@ -162,23 +162,17 @@ public class EsqlIndexResolver {
                 }
             }
             for (IndexFieldCapabilities fc : rest) {
-                aggregatable &= fc.isAggregatable();
+                if (type != typeRegistry.fromEs(fc.type(), fc.metricType())) {
+                    return conflictingTypes(name, fullName, fieldCapsResponse);
+                }
             }
             for (IndexFieldCapabilities fc : rest) {
-                if (type != typeRegistry.fromEs(fc.type(), fc.metricType())) {
-                    return conflictingTypes(name, fullName, aggregatable, fieldCapsResponse);
-                }
+                aggregatable &= fc.isAggregatable();
             }
         }
 
         // TODO I think we only care about unmapped fields if we're aggregating on them. do we even then?
-        if (type == UNSUPPORTED) {
-            return unsupported(name, first);
-        }
-        return createField(name, type, aggregatable, isAlias);
-    }
 
-    private EsField createField(String name, DataType type, boolean aggregatable, boolean isAlias) {
         if (type == TEXT) {
             return new TextEsField(name, new HashMap<>(), false, isAlias);
         }
@@ -191,6 +185,9 @@ public class EsqlIndexResolver {
         if (type == DATETIME) {
             return DateEsField.dateEsField(name, new HashMap<>(), aggregatable);
         }
+        if (type == UNSUPPORTED) {
+            return unsupported(name, first);
+        }
 
         return new EsField(name, type, new HashMap<>(), aggregatable, isAlias);
     }
@@ -200,7 +197,7 @@ public class EsqlIndexResolver {
         return new UnsupportedEsField(name, originalType);
     }
 
-    private EsField conflictingTypes(String name, String fullName, boolean aggregatable, FieldCapabilitiesResponse fieldCapsResponse) {
+    private EsField conflictingTypes(String name, String fullName, FieldCapabilitiesResponse fieldCapsResponse) {
         Map<String, Set<String>> typesToIndices = new TreeMap<>();
         for (FieldCapabilitiesIndexResponse ir : fieldCapsResponse.getIndexResponses()) {
             IndexFieldCapabilities fc = ir.get().get(fullName);
@@ -212,7 +209,7 @@ public class EsqlIndexResolver {
                 typesToIndices.computeIfAbsent(type.typeName(), _key -> new TreeSet<>()).add(ir.getIndexName());
             }
         }
-        return new InvalidMappedField(name, typesToIndices, aggregatable);
+        return new InvalidMappedField(name, typesToIndices);
     }
 
     private EsField conflictingMetricTypes(String name, String fullName, FieldCapabilitiesResponse fieldCapsResponse) {

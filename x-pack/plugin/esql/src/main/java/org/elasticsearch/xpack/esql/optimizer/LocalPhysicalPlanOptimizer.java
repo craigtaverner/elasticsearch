@@ -63,7 +63,6 @@ import org.elasticsearch.xpack.esql.plan.physical.UnaryExec;
 import org.elasticsearch.xpack.esql.planner.AbstractPhysicalOperationProviders;
 import org.elasticsearch.xpack.esql.planner.EsqlTranslatorHandler;
 import org.elasticsearch.xpack.esql.stats.SearchStats;
-import org.elasticsearch.xpack.esql.type.MultiTypeEsField;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -444,10 +443,7 @@ public class LocalPhysicalPlanOptimizer extends ParameterizedRuleExecutor<Physic
     }
 
     public static boolean isPushableFieldAttribute(Expression exp, Predicate<FieldAttribute> hasIdenticalDelegate) {
-        if (exp instanceof FieldAttribute fa
-            && fa.field() instanceof MultiTypeEsField == false
-            && fa.getExactInfo().hasExact()
-            && isAggregatable(fa)) {
+        if (exp instanceof FieldAttribute fa && fa.getExactInfo().hasExact() && isAggregatable(fa)) {
             return fa.dataType() != DataType.TEXT || hasIdenticalDelegate.test(fa);
         }
         return false;

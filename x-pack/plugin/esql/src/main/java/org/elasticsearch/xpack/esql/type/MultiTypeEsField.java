@@ -78,11 +78,6 @@ public class MultiTypeEsField extends EsField {
                 indexToConversionExpressions.put(indexName, convertExpr);
             }
         }
-        return new MultiTypeEsField(
-            invalidMappedField.getName(),
-            resolvedDataType,
-            invalidMappedField.isAggregatableIfMultiValuedResolved(),
-            indexToConversionExpressions
-        );
+        return new MultiTypeEsField(invalidMappedField.getName(), resolvedDataType, false, indexToConversionExpressions);
     }
 }
