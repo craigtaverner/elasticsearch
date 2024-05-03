@@ -209,7 +209,7 @@ public class EsqlIndexResolver {
                 if (type == UNSUPPORTED) {
                     return unsupported(name, fc);
                 }
-                typesToIndices.computeIfAbsent(type.esType(), _key -> new TreeSet<>()).add(ir.getIndexName());
+                typesToIndices.computeIfAbsent(type.typeName(), _key -> new TreeSet<>()).add(ir.getIndexName());
             }
         }
         return new InvalidMappedField(name, typesToIndices, aggregatable);
