@@ -361,13 +361,13 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         return DirectoryReader.open(directory);
     }
 
-    // @Override
-    protected String expectedDescriptionOfSimple() {
-        return "ValuesSourceReaderOperator[fields = [long]]";
+    @Override
+    protected Matcher<String> expectedDescriptionOfSimple() {
+        return equalTo("ValuesSourceReaderOperator[fields = [long]]");
     }
 
-    // @Override
-    protected String expectedToStringOfSimple() {
+    @Override
+    protected Matcher<String> expectedToStringOfSimple() {
         return expectedDescriptionOfSimple();
     }
 
