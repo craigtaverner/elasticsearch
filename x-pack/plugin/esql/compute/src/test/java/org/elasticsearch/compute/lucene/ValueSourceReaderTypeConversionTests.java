@@ -74,8 +74,6 @@ import org.elasticsearch.index.mapper.MapperServiceTestCase;
 import org.elasticsearch.index.mapper.ParsedDocument;
 import org.elasticsearch.index.mapper.SourceLoader;
 import org.elasticsearch.index.mapper.SourceToParse;
-import org.elasticsearch.index.mapper.TextFieldMapper;
-import org.elasticsearch.index.mapper.TextSearchInfo;
 import org.elasticsearch.index.mapper.TsidExtractingIdFieldMapper;
 import org.elasticsearch.search.DocValueFormat;
 import org.elasticsearch.search.fetch.StoredFieldsSpec;
@@ -86,6 +84,8 @@ import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.xcontent.XContentBuilder;
 import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.xcontent.json.JsonXContent;
+import org.elasticsearch.xpack.ql.type.DataType;
+import org.elasticsearch.xpack.ql.type.DataTypes;
 import org.elasticsearch.xpack.ql.util.StringUtils;
 import org.hamcrest.Matcher;
 import org.junit.After;
@@ -93,21 +93,23 @@ import org.junit.After;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static org.elasticsearch.test.MapMatcher.assertMap;
 import static org.elasticsearch.test.MapMatcher.matchesMap;
+import static org.elasticsearch.xpack.ql.type.DataTypes.IP;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -120,7 +122,34 @@ import static org.hamcrest.Matchers.sameInstance;
 
 public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     private static final String[] PREFIX = new String[] { "a", "b", "c" };
-    private static final String[] INDICES = new String[] { "index1", "index2" };
+    private static final Map<String, TestIndexMappingConfig> INDICES = new LinkedHashMap<>();
+    static {
+        addIndex(
+            Map.of(
+                "ip",
+                new TestFieldType<>("ip", IP, d -> "192.169.0." + d % 256, Checks::unionIPsAsStrings),
+                "duration",
+                new TestFieldType<>("duration", DataTypes.LONG, d -> (long) d, Checks::unionDurationsAsStrings)
+            )
+        );
+        addIndex(
+            Map.of(
+                "ip",
+                new TestFieldType<>("ip", DataTypes.KEYWORD, d -> "192.169.0." + d % 256, Checks::unionIPsAsStrings),
+                "duration",
+                new TestFieldType<>("duration", DataTypes.KEYWORD, d -> Integer.toString(d), Checks::unionDurationsAsStrings)
+            )
+        );
+    }
+
+    static void addIndex(Map<String, TestFieldType> fieldTypes) {
+        String indexKey = "index" + (INDICES.size() + 1);
+        INDICES.put(indexKey, new TestIndexMappingConfig(indexKey, INDICES.size(), fieldTypes));
+    }
+
+    private record TestIndexMappingConfig(String indexName, int shardIdx, Map<String, TestFieldType> fieldTypes) {}
+
+    private record TestFieldType<T>(String name, DataType dataType, Function<Integer, T> valueGenerator, CheckResults checkResults) {}
 
     private final Map<String, Directory> directories = new HashMap<>();
     private final Map<String, MapperService> mapperServices = new HashMap<>();
@@ -141,6 +170,13 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         return mapperServices.get(indexKey);
     }
 
+    private List<ValuesSourceReaderOperator.ShardContext> initShardContexts() {
+        return INDICES.keySet()
+            .stream()
+            .map(index -> new ValuesSourceReaderOperator.ShardContext(reader(index), () -> SourceLoader.FROM_STORED_SOURCE))
+            .toList();
+    }
+
     private IndexReader reader(String indexKey) {
         if (readers.get(indexKey) == null) {
             try {
@@ -152,12 +188,9 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         return readers.get(indexKey);
     }
 
-    // @Override
+    @Override
     protected Operator.OperatorFactory simple() {
-        List<ValuesSourceReaderOperator.ShardContext> shardContexts = Arrays.stream(INDICES)
-            .map(index -> new ValuesSourceReaderOperator.ShardContext(reader(index), () -> SourceLoader.FROM_STORED_SOURCE))
-            .toList();
-        return factory(shardContexts, mapperService("index1").fieldType("long"), ElementType.LONG);
+        return factory(initShardContexts(), mapperService("index1").fieldType("long"), ElementType.LONG);
     }
 
     public static Operator.OperatorFactory factory(
@@ -175,7 +208,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         BlockLoader loader
     ) {
         return new ValuesSourceReaderOperator.Factory(List.of(new ValuesSourceReaderOperator.FieldInfo(name, elementType, shardIdx -> {
-            if (shardIdx < 0 || shardIdx >= INDICES.length) {
+            if (shardIdx < 0 || shardIdx >= INDICES.size()) {
                 fail("unexpected shardIdx [" + shardIdx + "]");
             }
             return loader;
@@ -191,17 +224,17 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     private SourceOperator simpleInput(DriverContext context, int size, int commitEvery, int pageSize) {
+        List<LuceneSourceOperatorTests.MockShardContext> shardContexts = new ArrayList<>();
         try {
-            initIndex("index1", size, commitEvery);
-            initIndex("index2", size, commitEvery);
+            for (String indexKey : INDICES.keySet()) {
+                initIndex(indexKey, size, commitEvery);
+                shardContexts.add(new LuceneSourceOperatorTests.MockShardContext(reader(indexKey), INDICES.get(indexKey).shardIdx));
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         var luceneFactory = new LuceneSourceOperator.Factory(
-            List.of(
-                new LuceneSourceOperatorTests.MockShardContext(reader("index1"), 0),
-                new LuceneSourceOperatorTests.MockShardContext(reader("index2"), 1)
-            ),
+            shardContexts,
             ctx -> new MatchAllDocsQuery(),
             DataPartitioning.SHARD,
             1,// randomIntBetween(1, 10),
@@ -212,9 +245,11 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     private void initMapping(String indexKey) throws IOException {
+        TestIndexMappingConfig indexMappingConfig = INDICES.get(indexKey);
         mapperServices.put(indexKey, new MapperServiceTestCase() {
         }.createMapperService(MapperServiceTestCase.mapping(b -> {
-            fieldExamples(b, "key", "integer");
+            fieldExamples(b, "key", "integer"); // unique key per-index to use for looking up test values to compare to
+            fieldExamples(b, "indexKey", "keyword");  // index name (can be used to choose index-specific test values)
             fieldExamples(b, "int", "integer");
             fieldExamples(b, "short", "short");
             fieldExamples(b, "byte", "byte");
@@ -225,6 +260,12 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             b.startObject("mv_stored_kwd").field("type", "keyword").field("store", true).endObject();
 
             simpleField(b, "missing_text", "text");
+
+            for (Map.Entry<String, TestFieldType> entry : indexMappingConfig.fieldTypes.entrySet()) {
+                String fieldName = entry.getKey();
+                TestFieldType<?> fieldType = entry.getValue();
+                simpleField(b, fieldName, fieldType.dataType.typeName());
+            }
         })));
     }
 
@@ -235,6 +276,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
 
     private IndexReader initIndex(String indexKey, Directory directory, int size, int commitEvery) throws IOException {
         keyToTags.computeIfAbsent(indexKey, k -> new HashMap<>()).clear();
+        TestIndexMappingConfig indexMappingConfig = INDICES.get(indexKey);
         try (
             IndexWriter writer = new IndexWriter(
                 directory,
@@ -244,10 +286,11 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             for (int d = 0; d < size; d++) {
                 XContentBuilder source = JsonXContent.contentBuilder();
                 source.startObject();
-                source.field("key", d);
+                source.field("key", d);  // documents in this index have a unique key, from which most other values can be derived
+                source.field("indexKey", indexKey);  // all documents in this index have the same indexKey
 
                 source.field("long", d);
-                source.field("str_long", d);
+                source.field("str_long", Long.toString(d));
                 source.startArray("mv_long");
                 for (int v = 0; v <= d % 3; v++) {
                     source.value((long) (-1_000 * d + v));
@@ -261,7 +304,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 source.endArray();
 
                 source.field("int", d);
-                source.field("str_int", d);
+                source.field("str_int", Integer.toString(d));
                 source.startArray("mv_int");
                 for (int v = 0; v <= d % 3; v++) {
                     source.value(1_000 * d + v);
@@ -275,7 +318,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 source.endArray();
 
                 source.field("short", (short) d);
-                source.field("str_short", (short) d);
+                source.field("str_short", Short.toString((short) d));
                 source.startArray("mv_short");
                 for (int v = 0; v <= d % 3; v++) {
                     source.value((short) (2_000 * d + v));
@@ -289,7 +332,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 source.endArray();
 
                 source.field("byte", (byte) d);
-                source.field("str_byte", (byte) d);
+                source.field("str_byte", Byte.toString((byte) d));
                 source.startArray("mv_byte");
                 for (int v = 0; v <= d % 3; v++) {
                     source.value((byte) (3_000 * d + v));
@@ -303,7 +346,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 source.endArray();
 
                 source.field("double", d / 123_456d);
-                source.field("str_double", d / 123_456d);
+                source.field("str_double", Double.toString(d / 123_456d));
                 source.startArray("mv_double");
                 for (int v = 0; v <= d % 3; v++) {
                     source.value(d / 123_456d + v);
@@ -343,6 +386,12 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                     source.value(PREFIX[v] + d);
                 }
                 source.endArray();
+
+                for (Map.Entry<String, TestFieldType> entry : indexMappingConfig.fieldTypes.entrySet()) {
+                    String fieldName = entry.getKey();
+                    TestFieldType<?> fieldType = entry.getValue();
+                    source.field(fieldName, fieldType.valueGenerator.apply(d));
+                }
 
                 source.endObject();
 
@@ -416,13 +465,12 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     public void testManySingleDocPages() {
+        String indexKey = "index1";
         DriverContext driverContext = driverContext();
         int numDocs = between(10, 100);
         List<Page> input = CannedSourceOperator.collectPages(simpleInput(driverContext, numDocs, between(1, numDocs), 1));
         Randomness.shuffle(input);
-        List<ValuesSourceReaderOperator.ShardContext> shardContexts = Arrays.stream(INDICES)
-            .map(index -> new ValuesSourceReaderOperator.ShardContext(reader(index), () -> SourceLoader.FROM_STORED_SOURCE))
-            .toList();
+        List<ValuesSourceReaderOperator.ShardContext> shardContexts = initShardContexts();
         List<Operator> operators = new ArrayList<>();
         Checks checks = new Checks(Block.MvOrdering.DEDUPLICATED_AND_SORTED_ASCENDING, Block.MvOrdering.DEDUPLICATED_AND_SORTED_ASCENDING);
         FieldCase testCase = new FieldCase(
@@ -431,9 +479,10 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             checks::tags,
             StatusChecks::keywordsFromDocValues
         );
+        // TODO: Add index2
         operators.add(
             new ValuesSourceReaderOperator.Factory(
-                List.of(testCase.info, fieldInfo(mapperService("index1").fieldType("key"), ElementType.INT)),
+                List.of(testCase.info, fieldInfo(mapperService(indexKey).fieldType("key"), ElementType.INT)),
                 shardContexts,
                 0
             ).get(driverContext)
@@ -445,7 +494,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             IntVector keys = page.<IntBlock>getBlock(2).asVector();
             for (int p = 0; p < page.getPositionCount(); p++) {
                 int key = keys.getInt(p);
-                testCase.checkResults.check(page.getBlock(1), p, key);
+                testCase.checkResults.check(page.getBlock(1), p, key, indexKey);
             }
         }
     }
@@ -481,6 +530,10 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
 
     private static ValuesSourceReaderOperator.FieldInfo fieldInfo(MappedFieldType ft, MappedFieldType ftX, ElementType elementType) {
         return new ValuesSourceReaderOperator.FieldInfo(ft.name(), elementType, shardIdx -> getBlockLoaderFor(shardIdx, ft, ftX));
+    }
+
+    private ValuesSourceReaderOperator.FieldInfo fieldInfo(String fieldName, ElementType elementType, DataType toType) {
+        return new ValuesSourceReaderOperator.FieldInfo(fieldName, elementType, shardIdx -> getBlockLoaderFor(shardIdx, fieldName, toType));
     }
 
     private static MappedFieldType.BlockLoaderContext blContext() {
@@ -524,13 +577,14 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         Block.MvOrdering bytesRefDocValuesMvOrdering
     ) {
         List<FieldCase> cases = infoAndChecksForEachType(booleanAndNumericalDocValuesMvOrdering, bytesRefDocValuesMvOrdering);
-        List<ValuesSourceReaderOperator.ShardContext> shardContexts = Arrays.stream(INDICES)
-            .map(index -> new ValuesSourceReaderOperator.ShardContext(reader(index), () -> SourceLoader.FROM_STORED_SOURCE))
-            .toList();
+        List<ValuesSourceReaderOperator.ShardContext> shardContexts = initShardContexts();
         List<Operator> operators = new ArrayList<>();
         operators.add(
             new ValuesSourceReaderOperator.Factory(
-                List.of(fieldInfo(mapperService("index1").fieldType("key"), ElementType.INT)),
+                List.of(
+                    fieldInfo(mapperService("index1").fieldType("key"), ElementType.INT),
+                    fieldInfo(mapperService("index1").fieldType("indexKey"), ElementType.BYTES_REF)
+                ),
                 shardContexts,
                 0
             ).get(driverContext)
@@ -547,13 +601,15 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         List<Page> results = drive(operators, input.iterator(), driverContext);
         assertThat(results, hasSize(input.size()));
         for (Page page : results) {
-            assertThat(page.getBlockCount(), equalTo(tests.size() + 2 /* one for doc and one for keys */));
+            assertThat(page.getBlockCount(), equalTo(tests.size() + 3 /* one for doc, one for keys and one for indexKey */));
             IntVector keys = page.<IntBlock>getBlock(1).asVector();
+            BytesRefVector indexKeys = page.<BytesRefBlock>getBlock(2).asVector();
             for (int p = 0; p < page.getPositionCount(); p++) {
                 int key = keys.getInt(p);
+                String indexKey = indexKeys.getBytesRef(p, new BytesRef()).utf8ToString();
                 for (int i = 0; i < tests.size(); i++) {
                     try {
-                        tests.get(i).checkResults.check(page.getBlock(2 + i), p, key);
+                        tests.get(i).checkResults.check(page.getBlock(3 + i), p, key, indexKey);
                     } catch (AssertionError e) {
                         throw new AssertionError("error checking " + tests.get(i).info.name() + "[" + p + "]: " + e.getMessage(), e);
                     }
@@ -567,7 +623,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     interface CheckResults {
-        void check(Block block, int position, int key);
+        void check(Block block, int position, int key, String indexKey);
     }
 
     interface CheckReaders {
@@ -606,6 +662,19 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 )
             );
         }
+
+        FieldCase(ValuesSourceReaderOperator.FieldInfo info, CheckResults checkResults, CheckReaders checkReaders) {
+            this(
+                info,
+                checkResults,
+                (name, forcedRowByRow, pageCount, segmentCount, readersBuilt) -> checkReaders.check(
+                    forcedRowByRow,
+                    pageCount,
+                    segmentCount,
+                    readersBuilt
+                )
+            );
+        }
     }
 
     /**
@@ -629,9 +698,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         int numDocs = between(100, 5000);
         List<Page> input = CannedSourceOperator.collectPages(simpleInput(driverContext, numDocs, commitEvery(numDocs), numDocs));
         assertThat(input, hasSize(20));
-        List<ValuesSourceReaderOperator.ShardContext> shardContexts = Arrays.stream(INDICES)
-            .map(index -> new ValuesSourceReaderOperator.ShardContext(reader(index), () -> SourceLoader.FROM_STORED_SOURCE))
-            .toList();
+        List<ValuesSourceReaderOperator.ShardContext> shardContexts = initShardContexts();
         int totalSize = 0;
         for (var shardContext : shardContexts) {
             assertThat(shardContext.reader().leaves(), hasSize(10));
@@ -661,8 +728,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         Block.MvOrdering booleanAndNumericalDocValuesMvOrdering,
         Block.MvOrdering bytesRefDocValuesMvOrdering
     ) {
-        String indexKey = "index1"; // TODO support multiple indexes
-        MapperService mapperService = mapperService(indexKey);
+        MapperService mapperService = mapperService("index1");  // almost fields have identical mapper service
         Checks checks = new Checks(booleanAndNumericalDocValuesMvOrdering, bytesRefDocValuesMvOrdering);
         List<FieldCase> r = new ArrayList<>();
         r.add(new FieldCase(mapperService.fieldType(IdFieldMapper.NAME), ElementType.BYTES_REF, checks::ids, StatusChecks::id));
@@ -805,67 +871,99 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 StatusChecks::constantNulls
             )
         );
+
+        // We only care about the field name at this point, so we can use any index mapper here
+        TestIndexMappingConfig indexMappingConfig = INDICES.get("index1");
+        for (TestFieldType<?> fieldType : indexMappingConfig.fieldTypes.values()) {
+            r.add(
+                new FieldCase(
+                    fieldInfo(fieldType.name, ElementType.BYTES_REF, DataTypes.KEYWORD),
+                    fieldType.checkResults,
+                    StatusChecks::unionFromDocValues
+                )
+            );
+        }
         Collections.shuffle(r, random());
         return r;
     }
 
     record Checks(Block.MvOrdering booleanAndNumericalDocValuesMvOrdering, Block.MvOrdering bytesRefDocValuesMvOrdering) {
-        void longs(Block block, int position, int key) {
+        void longs(Block block, int position, int key, String indexKey) {
             LongVector longs = ((LongBlock) block).asVector();
             assertThat(longs.getLong(position), equalTo((long) key));
         }
 
-        void ints(Block block, int position, int key) {
+        void ints(Block block, int position, int key, String indexKey) {
             IntVector ints = ((IntBlock) block).asVector();
             assertThat(ints.getInt(position), equalTo(key));
         }
 
-        void shorts(Block block, int position, int key) {
+        void shorts(Block block, int position, int key, String indexKey) {
             IntVector ints = ((IntBlock) block).asVector();
             assertThat(ints.getInt(position), equalTo((int) (short) key));
         }
 
-        void bytes(Block block, int position, int key) {
+        void bytes(Block block, int position, int key, String indexKey) {
             IntVector ints = ((IntBlock) block).asVector();
             assertThat(ints.getInt(position), equalTo((int) (byte) key));
         }
 
-        void doubles(Block block, int position, int key) {
+        void doubles(Block block, int position, int key, String indexKey) {
             DoubleVector doubles = ((DoubleBlock) block).asVector();
             assertThat(doubles.getDouble(position), equalTo(key / 123_456d));
         }
 
-        void strings(Block block, int position, int key) {
+        void strings(Block block, int position, int key, String indexKey) {
             BytesRefVector keywords = ((BytesRefBlock) block).asVector();
             assertThat(keywords.getBytesRef(position, new BytesRef()).utf8ToString(), equalTo(Integer.toString(key)));
         }
 
-        void tags(Block block, int position, int key) {
+        static void unionIPsAsStrings(Block block, int position, int key, String indexKey) {
             BytesRefVector keywords = ((BytesRefBlock) block).asVector();
-            Object[] validTags = Arrays.stream(INDICES).map(keyToTags::get).map(t -> t.get(key)).toArray();
+            BytesRef bytesRef = keywords.getBytesRef(position, new BytesRef());
+            TestIndexMappingConfig mappingConfig = INDICES.get(indexKey);
+            TestFieldType<?> fieldType = mappingConfig.fieldTypes.get("ip");
+            String expected = fieldType.valueGenerator.apply(key).toString();
+            // Conversion should already be done in FieldInfo!
+            // BytesRef found = (fieldType.dataType.typeName().equals("ip")) ? new BytesRef(DocValueFormat.IP.format(bytesRef)) : bytesRef;
+            assertThat(bytesRef.utf8ToString(), equalTo(expected));
+        }
+
+        static void unionDurationsAsStrings(Block block, int position, int key, String indexKey) {
+            BytesRefVector keywords = ((BytesRefBlock) block).asVector();
+            BytesRef bytesRef = keywords.getBytesRef(position, new BytesRef());
+            TestIndexMappingConfig mappingConfig = INDICES.get(indexKey);
+            TestFieldType<?> fieldType = mappingConfig.fieldTypes.get("duration");
+            String expected = fieldType.valueGenerator.apply(key).toString();
+            assertThat(bytesRef.utf8ToString(), equalTo(expected));
+        }
+
+        void tags(Block block, int position, int key, String indexKey) {
+            BytesRefVector keywords = ((BytesRefBlock) block).asVector();
+            Object[] validTags = INDICES.keySet().stream().map(keyToTags::get).map(t -> t.get(key)).toArray();
             assertThat(keywords.getBytesRef(position, new BytesRef()).utf8ToString(), oneOf(validTags));
         }
 
-        void ids(Block block, int position, int key) {
+        void ids(Block block, int position, int key, String indexKey) {
             BytesRefVector ids = ((BytesRefBlock) block).asVector();
             assertThat(ids.getBytesRef(position, new BytesRef()).utf8ToString(), equalTo("id" + key));
         }
 
-        void constantBytes(Block block, int position, int key) {
+        void constantBytes(Block block, int position, int key, String indexKey) {
             BytesRefVector keywords = ((BytesRefBlock) block).asVector();
             assertThat(keywords.getBytesRef(position, new BytesRef()).utf8ToString(), equalTo("foo"));
         }
 
-        void constantNulls(Block block, int position, int key) {
+        void constantNulls(Block block, int position, int key, String indexKey) {
             assertTrue(block.areAllValuesNull());
             assertTrue(block.isNull(position));
         }
 
-        void mvLongsFromDocValues(Block block, int position, int key) {
+        void mvLongsFromDocValues(Block block, int position, int key, String indexKey) {
             mvLongs(block, position, key, booleanAndNumericalDocValuesMvOrdering);
         }
 
-        void mvLongsUnordered(Block block, int position, int key) {
+        void mvLongsUnordered(Block block, int position, int key, String indexKey) {
             mvLongs(block, position, key, Block.MvOrdering.UNORDERED);
         }
 
@@ -881,11 +979,11 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             }
         }
 
-        void mvIntsFromDocValues(Block block, int position, int key) {
+        void mvIntsFromDocValues(Block block, int position, int key, String indexKey) {
             mvInts(block, position, key, booleanAndNumericalDocValuesMvOrdering);
         }
 
-        void mvIntsUnordered(Block block, int position, int key) {
+        void mvIntsUnordered(Block block, int position, int key, String indexKey) {
             mvInts(block, position, key, Block.MvOrdering.UNORDERED);
         }
 
@@ -901,7 +999,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             }
         }
 
-        void mvShorts(Block block, int position, int key) {
+        void mvShorts(Block block, int position, int key, String indexKey) {
             IntBlock ints = (IntBlock) block;
             assertThat(ints.getValueCount(position), equalTo(key % 3 + 1));
             int offset = ints.getFirstValueIndex(position);
@@ -913,7 +1011,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             }
         }
 
-        void mvBytes(Block block, int position, int key) {
+        void mvBytes(Block block, int position, int key, String indexKey) {
             IntBlock ints = (IntBlock) block;
             assertThat(ints.getValueCount(position), equalTo(key % 3 + 1));
             int offset = ints.getFirstValueIndex(position);
@@ -925,7 +1023,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             }
         }
 
-        void mvDoubles(Block block, int position, int key) {
+        void mvDoubles(Block block, int position, int key, String indexKey) {
             DoubleBlock doubles = (DoubleBlock) block;
             int offset = doubles.getFirstValueIndex(position);
             for (int v = 0; v <= key % 3; v++) {
@@ -936,11 +1034,11 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             }
         }
 
-        void mvStringsFromDocValues(Block block, int position, int key) {
+        void mvStringsFromDocValues(Block block, int position, int key, String indexKey) {
             mvStrings(block, position, key, bytesRefDocValuesMvOrdering);
         }
 
-        void mvStringsUnordered(Block block, int position, int key) {
+        void mvStringsUnordered(Block block, int position, int key, String indexKey) {
             mvStrings(block, position, key, Block.MvOrdering.UNORDERED);
         }
 
@@ -1041,6 +1139,11 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
 
         static void mvKeywordsFromSource(boolean forcedRowByRow, int pageCount, int segmentCount, Map<?, ?> readers) {
             source("mv_source_kwd", "Bytes", forcedRowByRow, pageCount, segmentCount, readers);
+        }
+
+        static void unionFromDocValues(String name, boolean forcedRowByRow, int pageCount, int segmentCount, Map<?, ?> readers) {
+            // TODO: develop a working check for this
+            // docValues(name, "Ordinals", forcedRowByRow, pageCount, segmentCount, readers);
         }
 
         private static void docValues(
@@ -1243,11 +1346,6 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         return sourceField(builder, "mv_source_" + name, type);
     }
 
-    private XContentBuilder multiTypeExamples(XContentBuilder builder, String name, String type) throws IOException {
-        simpleField(builder, name, type);
-        return simpleField(builder, "str_" + name, "keyword");
-    }
-
     private XContentBuilder simpleField(XContentBuilder builder, String name, String type) throws IOException {
         return builder.startObject(name).field("type", type).endObject();
     }
@@ -1272,40 +1370,10 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         );
     }
 
-    private TextFieldMapper.TextFieldType storedTextField(String name) {
-        return new TextFieldMapper.TextFieldType(
-            name,
-            false,
-            true,
-            new TextSearchInfo(TextFieldMapper.Defaults.FIELD_TYPE, null, Lucene.STANDARD_ANALYZER, Lucene.STANDARD_ANALYZER),
-            true, // TODO randomize - if the field is stored we should load from the stored field even if there is source
-            null,
-            Map.of(),
-            false,
-            false
-        );
-    }
-
-    private TextFieldMapper.TextFieldType textFieldWithDelegate(String name, KeywordFieldMapper.KeywordFieldType delegate) {
-        return new TextFieldMapper.TextFieldType(
-            name,
-            false,
-            false,
-            new TextSearchInfo(TextFieldMapper.Defaults.FIELD_TYPE, null, Lucene.STANDARD_ANALYZER, Lucene.STANDARD_ANALYZER),
-            randomBoolean(),
-            delegate,
-            Map.of(),
-            false,
-            false
-        );
-    }
-
     @AwaitsFix(bugUrl = "Get working for multiple indices")
     public void testNullsShared() {
         DriverContext driverContext = driverContext();
-        List<ValuesSourceReaderOperator.ShardContext> shardContexts = Arrays.stream(INDICES)
-            .map(index -> new ValuesSourceReaderOperator.ShardContext(reader(index), () -> SourceLoader.FROM_STORED_SOURCE))
-            .toList();
+        List<ValuesSourceReaderOperator.ShardContext> shardContexts = initShardContexts();
         int[] pages = new int[] { 0 };
         try (
             Driver d = new Driver(
@@ -1387,6 +1455,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 1000,
                 LuceneOperator.NO_LIMIT
             );
+            // TODO add index2
             MappedFieldType ft = mapperService(indexKey).fieldType("key");
             var readerFactory = new ValuesSourceReaderOperator.Factory(
                 List.of(new ValuesSourceReaderOperator.FieldInfo("key", ElementType.INT, shardIdx -> {
@@ -1507,13 +1576,39 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     private static BlockLoader getBlockLoaderFor(int shardIdx, MappedFieldType ft, MappedFieldType ftX) {
-        if (shardIdx < 0 || shardIdx >= INDICES.length) {
+        if (shardIdx < 0 || shardIdx >= INDICES.size()) {
             fail("unexpected shardIdx [" + shardIdx + "]");
         }
         BlockLoader blockLoader = ft.blockLoader(blContext());
         if (ftX != null && ftX.typeName().equals(ft.typeName()) == false) {
-            blockLoader = new TestTypeConvertingBlockLoader(blockLoader, ft, ftX);
+            blockLoader = new TestTypeConvertingBlockLoader(blockLoader, ft.typeName(), ftX.typeName());
+        } else {
+            TestIndexMappingConfig mappingConfig = INDICES.get("index" + (shardIdx + 1));
+            TestFieldType<?> testFieldType = mappingConfig.fieldTypes.get(ft.name());
+            if (testFieldType != null) {
+                blockLoader = new TestTypeConvertingBlockLoader(blockLoader, testFieldType.dataType.typeName(), "keyword");
+            }
         }
+        return blockLoader;
+    }
+
+    /**
+     * This method is used to generate shard-specific field information, so we can have different types and blockloaders for each shard.
+     */
+    private BlockLoader getBlockLoaderFor(int shardIdx, String fieldName, DataType toType) {
+        if (shardIdx < 0 || shardIdx >= INDICES.size()) {
+            fail("unexpected shardIdx [" + shardIdx + "]");
+        }
+        String indexKey = "index" + (shardIdx + 1);
+        TestIndexMappingConfig mappingConfig = INDICES.get(indexKey);
+        TestFieldType<?> testFieldType = mappingConfig.fieldTypes.get(fieldName);
+        if (testFieldType == null) {
+            throw new IllegalArgumentException("Unknown test field: " + fieldName);
+        }
+        MapperService mapper = mapperService(indexKey);
+        MappedFieldType ft = mapper.fieldType(fieldName);
+        BlockLoader blockLoader = ft.blockLoader(blContext());
+        blockLoader = new TestTypeConvertingBlockLoader(blockLoader, testFieldType.dataType.typeName(), toType.typeName());
         return blockLoader;
     }
 
@@ -1521,7 +1616,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         protected final BlockLoader delegate;
         private final EvalOperator.ExpressionEvaluator convertEvaluator;
 
-        protected TestTypeConvertingBlockLoader(BlockLoader delegate, MappedFieldType from, MappedFieldType to) {
+        protected TestTypeConvertingBlockLoader(BlockLoader delegate, String from, String to) {
             this.delegate = delegate;
             DriverContext driverContext = new DriverContext(
                 BigArrays.NON_RECYCLING_INSTANCE,
@@ -1876,33 +1971,31 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     private class TestDataTypeConverter {
-        public static TestBlockConverter blockConverter(DriverContext driverContext, MappedFieldType from, MappedFieldType to) {
-            if (to == null || from == to) {
+        public static TestBlockConverter blockConverter(DriverContext driverContext, String from, String to) {
+            if (to == null || from.equals(to)) {
                 return b -> b;
             }
-            if (isString(from.typeName())) {
-                return switch (to.typeName()) {
+            if (isString(from)) {
+                return switch (to) {
                     case "boolean" -> new TestBooleanBlockFromStringConverter(driverContext);
                     case "short", "integer" -> new TestIntegerBlockFromStringConverter(driverContext);
                     case "long" -> new TestLongBlockFromStringConverter(driverContext);
                     case "double", "float" -> new TestDoubleBlockFromStringConverter(driverContext);
                     case "ip" -> new TestStringToIPConverter(driverContext);
-                    default -> throw new UnsupportedOperationException("Conversion from string to " + to.typeName() + " is not supported");
+                    default -> throw new UnsupportedOperationException("Conversion from string to " + to + " is not supported");
                 };
             }
-            if (isString(to.typeName())) {
-                return switch (from.typeName()) {
+            if (isString(to)) {
+                return switch (from) {
                     case "boolean" -> new TestBooleanBlockToStringConverter(driverContext);
                     case "short", "integer" -> new TestIntegerBlockToStringConverter(driverContext);
                     case "long" -> new TestLongBlockToStringConverter(driverContext);
                     case "double", "float" -> new TestDoubleBlockToStringConverter(driverContext);
                     case "ip" -> new TestIPToStringConverter(driverContext);
-                    default -> throw new UnsupportedOperationException(
-                        "Conversion from " + from.typeName() + " to string is not supported"
-                    );
+                    default -> throw new UnsupportedOperationException("Conversion from " + from + " to string is not supported");
                 };
             }
-            throw new UnsupportedOperationException("Conversion from " + from.typeName() + " to " + to.typeName() + " is not supported");
+            throw new UnsupportedOperationException("Conversion from " + from + " to " + to + " is not supported");
         }
 
         private static boolean isString(String typeName) {
