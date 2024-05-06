@@ -142,12 +142,12 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         );
     }
 
-    static void addIndex(Map<String, TestFieldType> fieldTypes) {
+    static void addIndex(Map<String, TestFieldType<?>> fieldTypes) {
         String indexKey = "index" + (INDICES.size() + 1);
         INDICES.put(indexKey, new TestIndexMappingConfig(indexKey, INDICES.size(), fieldTypes));
     }
 
-    private record TestIndexMappingConfig(String indexName, int shardIdx, Map<String, TestFieldType> fieldTypes) {}
+    private record TestIndexMappingConfig(String indexName, int shardIdx, Map<String, TestFieldType<?>> fieldTypes) {}
 
     private record TestFieldType<T>(String name, DataType dataType, Function<Integer, T> valueGenerator, CheckResults checkResults) {}
 
@@ -261,7 +261,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
 
             simpleField(b, "missing_text", "text");
 
-            for (Map.Entry<String, TestFieldType> entry : indexMappingConfig.fieldTypes.entrySet()) {
+            for (Map.Entry<String, TestFieldType<?>> entry : indexMappingConfig.fieldTypes.entrySet()) {
                 String fieldName = entry.getKey();
                 TestFieldType<?> fieldType = entry.getValue();
                 simpleField(b, fieldName, fieldType.dataType.typeName());
@@ -387,7 +387,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 }
                 source.endArray();
 
-                for (Map.Entry<String, TestFieldType> entry : indexMappingConfig.fieldTypes.entrySet()) {
+                for (Map.Entry<String, TestFieldType<?>> entry : indexMappingConfig.fieldTypes.entrySet()) {
                     String fieldName = entry.getKey();
                     TestFieldType<?> fieldType = entry.getValue();
                     source.field(fieldName, fieldType.valueGenerator.apply(d));
