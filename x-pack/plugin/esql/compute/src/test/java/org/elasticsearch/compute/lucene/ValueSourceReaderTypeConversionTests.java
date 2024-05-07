@@ -33,7 +33,6 @@ import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.collect.Iterators;
 import org.elasticsearch.common.lucene.Lucene;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.util.BigArrays;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
 import org.elasticsearch.compute.data.Block;
@@ -120,6 +119,32 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.oneOf;
 import static org.hamcrest.Matchers.sameInstance;
 
+/**
+ * These tests are partial duplicates of the tests in <code>ValuesSourceReaderOperatorTests</code>, and focus on testing the behaviour
+ * of the <code>ValuesSourceReaderOperator</code>, but with a few key differences:
+ * <ul>
+ *     <li>Multiple indexes and index mappings are defined and tested</li>
+ *     <li>
+ *         Most primitive types also include a field with prefix 'str_' which is stored and mapped as a string,
+ *         but expected to be extracted and converted directly to the primitive type.
+ *         For example: <code>"str_long": "1"</code> should be read directly into a field named "str_long" of type "long" and value 1.
+ *         This tests the ability of the <code>BlockLoader.convert(Block)</code> method to convert a string to a primitive type.
+ *     </li>
+ *     <li>
+ *         Each index has a few additional custom fields that are stored as specific types, but should be converted to strings by the
+ *         <code>BlockLoader.convert(Block)</code> method. These fields are:
+ *         <ul>
+ *             <li>ip: stored as an IP type, but should be converted to a string</li>
+ *             <li>duration: stored as a long type, but should be converted to a string</li>
+ *         </ul>
+ *         One index stores them as IP and long types, and the other as keyword types, so we test the behaviour of the
+ *         'union types' capabilities of the <code>ValuesSourceReaderOperator</code> class.
+ *     </li>
+ * </ul>
+ * Since this test does not have access to the type conversion code in the ESQL module, we have mocks for that behaviour
+ * in the inner classes <code>TestTypeConvertingBlockLoader</code> and <code>TestBlockConverter</code>.
+ */
+@SuppressWarnings("resource")
 public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     private static final String[] PREFIX = new String[] { "a", "b", "c" };
     private static final Map<String, TestIndexMappingConfig> INDICES = new LinkedHashMap<>();
@@ -293,13 +318,13 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 source.field("str_long", Long.toString(d));
                 source.startArray("mv_long");
                 for (int v = 0; v <= d % 3; v++) {
-                    source.value((long) (-1_000 * d + v));
+                    source.value(-1_000L * d + v);
                 }
                 source.endArray();
                 source.field("source_long", (long) d);
                 source.startArray("mv_source_long");
                 for (int v = 0; v <= d % 3; v++) {
-                    source.value((long) (-1_000 * d + v));
+                    source.value(-1_000L * d + v);
                 }
                 source.endArray();
 
@@ -420,30 +445,6 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         return expectedDescriptionOfSimple();
     }
 
-    // @Override
-    protected void assertSimpleOutput(List<Page> input, List<Page> results) {
-        long expectedSum = 0;
-        long current = 0;
-
-        long sum = 0;
-        for (Page r : results) {
-            LongBlock b = r.getBlock(r.getBlockCount() - 1);
-            for (int p = 0; p < b.getPositionCount(); p++) {
-                expectedSum += current;
-                current++;
-                sum += b.getLong(p);
-            }
-        }
-
-        assertThat(sum, equalTo(expectedSum));
-    }
-
-    // @Override
-    protected ByteSizeValue enoughMemoryForSimple() {
-        assumeFalse("strange exception in the test, fix soon", true);
-        return ByteSizeValue.ofKb(1);
-    }
-
     public void testLoadAll() {
         DriverContext driverContext = driverContext();
         loadSimpleAndAssert(
@@ -513,7 +514,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         DriverContext driverContext = driverContext();
         Page source = CannedSourceOperator.mergePages(CannedSourceOperator.collectPages(simpleInput(driverContext, between(100, 5000))));
         List<Integer> shuffleList = new ArrayList<>();
-        IntStream.range(0, source.getPositionCount()).forEach(i -> shuffleList.add(i));
+        IntStream.range(0, source.getPositionCount()).forEach(shuffleList::add);
         Randomness.shuffle(shuffleList);
         int[] shuffleArray = shuffleList.stream().mapToInt(Integer::intValue).toArray();
         Block[] shuffledBlocks = new Block[source.getBlockCount()];
@@ -653,19 +654,6 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
             this(
                 ft,
                 elementType,
-                checkResults,
-                (name, forcedRowByRow, pageCount, segmentCount, readersBuilt) -> checkReaders.check(
-                    forcedRowByRow,
-                    pageCount,
-                    segmentCount,
-                    readersBuilt
-                )
-            );
-        }
-
-        FieldCase(ValuesSourceReaderOperator.FieldInfo info, CheckResults checkResults, CheckReaders checkReaders) {
-            this(
-                info,
                 checkResults,
                 (name, forcedRowByRow, pageCount, segmentCount, readersBuilt) -> checkReaders.check(
                     forcedRowByRow,
@@ -1055,7 +1043,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         }
     }
 
-    class StatusChecks {
+    static class StatusChecks {
 
         static void strFromDocValues(String name, boolean forcedRowByRow, int pageCount, int segmentCount, Map<?, ?> readers) {
             docValues(name, "Ordinals", forcedRowByRow, pageCount, segmentCount, readers);
@@ -1476,7 +1464,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 IntBlock keyBlock = p.getBlock(1);
                 IntVector keys = keyBlock.asVector();
                 for (int i = 0; i < keys.getPositionCount(); i++) {
-                    keyCounts.merge(keys.getInt(i), 1, (prev, one) -> prev + one);
+                    keyCounts.merge(keys.getInt(i), 1, Integer::sum);
                 }
             }
             assertThat(keyCounts.keySet(), hasSize(size));
@@ -1535,7 +1523,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                         between(1, 100)
                     ),
                     List.of(),
-                    new PageConsumerOperator(page -> page.releaseBlocks()),
+                    new PageConsumerOperator(Page::releaseBlocks),
                     Driver.DEFAULT_STATUS_INTERVAL,
                     () -> {}
                 )
@@ -1575,6 +1563,10 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         }
     }
 
+    /**
+     * This method will produce the same converter for all shards, which makes it useful for general type converting tests,
+     * but not specifically union-types tests which require different converters for each shard.
+     */
     private static BlockLoader getBlockLoaderFor(int shardIdx, MappedFieldType ft, MappedFieldType ftX) {
         if (shardIdx < 0 || shardIdx >= INDICES.size()) {
             fail("unexpected shardIdx [" + shardIdx + "]");
@@ -1593,7 +1585,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
     }
 
     /**
-     * This method is used to generate shard-specific field information, so we can have different types and blockloaders for each shard.
+     * This method is used to generate shard-specific field information, so we can have different types and BlockLoaders for each shard.
      */
     private BlockLoader getBlockLoaderFor(int shardIdx, String fieldName, DataType toType) {
         if (shardIdx < 0 || shardIdx >= INDICES.size()) {
@@ -1612,11 +1604,17 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         return blockLoader;
     }
 
+    /**
+     * The implementation of union-types relies on the <code>BlockLoader.convert(Block)</code> to convert the block to the correct type
+     * at the point it is read from source, so that the rest of the query only deals with a single type for that field.
+     * This is implemented in the 'esql' module, and so we have a mock for this behaviour here, which is a simplified subset of the
+     * features in the real implementation.
+     */
     static class TestTypeConvertingBlockLoader implements BlockLoader {
         protected final BlockLoader delegate;
         private final EvalOperator.ExpressionEvaluator convertEvaluator;
 
-        protected TestTypeConvertingBlockLoader(BlockLoader delegate, String from, String to) {
+        protected TestTypeConvertingBlockLoader(BlockLoader delegate, String fromTypeName, String toTypeName) {
             this.delegate = delegate;
             DriverContext driverContext = new DriverContext(
                 BigArrays.NON_RECYCLING_INSTANCE,
@@ -1625,7 +1623,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                     BigArrays.NON_RECYCLING_INSTANCE
                 )
             );
-            TestBlockConverter blockConverter = TestDataTypeConverter.blockConverter(driverContext, from, to);
+            TestBlockConverter blockConverter = TestDataTypeConverters.blockConverter(driverContext, fromTypeName, toTypeName);
             this.convertEvaluator = new EvalOperator.ExpressionEvaluator() {
                 @Override
                 public org.elasticsearch.compute.data.Block eval(Page page) {
@@ -1661,8 +1659,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 public Block read(BlockFactory factory, Docs docs) throws IOException {
                     Block block = reader.read(factory, docs);
                     Page page = new Page((org.elasticsearch.compute.data.Block) block);
-                    org.elasticsearch.compute.data.Block converted = convertEvaluator.eval(page);
-                    return converted;
+                    return convertEvaluator.eval(page);
                 }
 
                 @Override
@@ -1710,6 +1707,9 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         Block convert(Block block);
     }
 
+    /**
+     * Blocks that should be converted from some type to a string (keyword) can use this converter.
+     */
     private abstract static class BlockToStringConverter implements TestBlockConverter {
         private final DriverContext driverContext;
 
@@ -1751,6 +1751,9 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         abstract BytesRef evalValue(Block container, int index);
     }
 
+    /**
+     * Blocks that should be converted from a string (keyword) to some other type can use this converter.
+     */
     private abstract static class TestBlockFromStringConverter<T> implements TestBlockConverter {
         protected final DriverContext driverContext;
 
@@ -1930,6 +1933,14 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         }
     }
 
+    /**
+     * Many types are backed by BytesRef block, but encode their contents in different ways.
+     * For example, the IP type has a 16-byte block that encodes both IPv4 and IPv6 as 16byte-IPv6 binary byte arrays.
+     * But the KEYWORD type has a BytesRef block that encodes the keyword as a UTF-8 string,
+     * and it typically has a much shorter length for IP data, for example, "192.168.0.1" is 11 bytes.
+     * Converting blocks between these types involves converting the BytesRef block to the specific internal type,
+     * and then back to a BytesRef block with the other encoding.
+     */
     private abstract static class TestBytesRefToBytesRefConverter extends BlockToStringConverter {
 
         BytesRef scratchPad = new BytesRef();
@@ -1970,32 +1981,37 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         }
     }
 
-    private class TestDataTypeConverter {
-        public static TestBlockConverter blockConverter(DriverContext driverContext, String from, String to) {
-            if (to == null || from.equals(to)) {
+    /**
+     * Utility class for creating type-specific converters based on their typeNamne values.
+     * We do not support all possibly combinations, but only those that are needed for the tests.
+     * In particular, either the 'from' or 'to' types must be KEYWORD.
+     */
+    private static class TestDataTypeConverters {
+        public static TestBlockConverter blockConverter(DriverContext driverContext, String fromTypeName, String toTypeName) {
+            if (toTypeName == null || fromTypeName.equals(toTypeName)) {
                 return b -> b;
             }
-            if (isString(from)) {
-                return switch (to) {
+            if (isString(fromTypeName)) {
+                return switch (toTypeName) {
                     case "boolean" -> new TestBooleanBlockFromStringConverter(driverContext);
                     case "short", "integer" -> new TestIntegerBlockFromStringConverter(driverContext);
                     case "long" -> new TestLongBlockFromStringConverter(driverContext);
                     case "double", "float" -> new TestDoubleBlockFromStringConverter(driverContext);
                     case "ip" -> new TestStringToIPConverter(driverContext);
-                    default -> throw new UnsupportedOperationException("Conversion from string to " + to + " is not supported");
+                    default -> throw new UnsupportedOperationException("Conversion from string to " + toTypeName + " is not supported");
                 };
             }
-            if (isString(to)) {
-                return switch (from) {
+            if (isString(toTypeName)) {
+                return switch (fromTypeName) {
                     case "boolean" -> new TestBooleanBlockToStringConverter(driverContext);
                     case "short", "integer" -> new TestIntegerBlockToStringConverter(driverContext);
                     case "long" -> new TestLongBlockToStringConverter(driverContext);
                     case "double", "float" -> new TestDoubleBlockToStringConverter(driverContext);
                     case "ip" -> new TestIPToStringConverter(driverContext);
-                    default -> throw new UnsupportedOperationException("Conversion from " + from + " to string is not supported");
+                    default -> throw new UnsupportedOperationException("Conversion from " + fromTypeName + " to string is not supported");
                 };
             }
-            throw new UnsupportedOperationException("Conversion from " + from + " to " + to + " is not supported");
+            throw new UnsupportedOperationException("Conversion from " + fromTypeName + " to " + toTypeName + " is not supported");
         }
 
         private static boolean isString(String typeName) {
