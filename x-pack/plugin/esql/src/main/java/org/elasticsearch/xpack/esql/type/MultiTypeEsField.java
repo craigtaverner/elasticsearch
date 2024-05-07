@@ -38,22 +38,6 @@ public class MultiTypeEsField extends EsField {
         return indexToConversionExpressions;
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (super.equals(obj) == false) {
-            return false;
-        }
-        if (obj instanceof MultiTypeEsField other) {
-            return super.equals(other) && indexToConversionExpressions.equals(other.indexToConversionExpressions);
-        }
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), indexToConversionExpressions);
-    }
-
     public Expression getConversionExpressionForIndex(String indexName) {
         return indexToConversionExpressions.get(indexName);
     }
@@ -79,5 +63,21 @@ public class MultiTypeEsField extends EsField {
             }
         }
         return new MultiTypeEsField(invalidMappedField.getName(), resolvedDataType, false, indexToConversionExpressions);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (super.equals(obj) == false) {
+            return false;
+        }
+        if (obj instanceof MultiTypeEsField other) {
+            return super.equals(other) && indexToConversionExpressions.equals(other.indexToConversionExpressions);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), indexToConversionExpressions);
     }
 }
