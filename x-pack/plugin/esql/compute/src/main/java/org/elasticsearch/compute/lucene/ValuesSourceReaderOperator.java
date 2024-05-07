@@ -330,11 +330,10 @@ public class ValuesSourceReaderOperator extends AbstractPageMappingOperator {
         void run() throws IOException {
             for (int f = 0; f < fields.length; f++) {
                 /*
-                 * Important note: each block loader has a method to build an
-                 * optimized block loader, but we have *many* fields and some
-                 * of those block loaders may not be compatible with each other.
-                 * So! We take the least common denominator which is the loader
-                 * from the element expected element type.
+                 * Important note: each field has a desired type, which might not match the mapped type (in the case of union-types).
+                 * We create the final block builders using the desired type, one for each field, but then also use inner builders
+                 * (one for each field and shard), and converters (again one for each field and shard) to actually perform the field
+                 * loading in a way that is correct for the mapped field type, and then convert between that type and the desired type.
                  */
                 fieldTypeBuilders[f] = fields[f].info.type.newBlockBuilder(docs.getPositionCount(), blockFactory);
                 builders[f] = new Block.Builder[shardContexts.size()];
