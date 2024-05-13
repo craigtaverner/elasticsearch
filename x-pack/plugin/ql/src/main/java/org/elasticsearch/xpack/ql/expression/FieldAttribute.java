@@ -137,7 +137,7 @@ public class FieldAttribute extends TypedAttribute {
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), path);
+        return Objects.hash(super.hashCode(), path, field);
     }
 
     @Override
@@ -154,9 +154,5 @@ public class FieldAttribute extends TypedAttribute {
 
     public EsField field() {
         return field;
-    }
-
-    public FieldAttribute withField(EsField esField) {
-        return new FieldAttribute(source(), parent(), name(), esField, qualifier(), nullable(), id(), synthetic());
     }
 }
