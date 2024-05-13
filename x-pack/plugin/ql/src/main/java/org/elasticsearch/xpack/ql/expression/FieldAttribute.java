@@ -142,7 +142,9 @@ public class FieldAttribute extends TypedAttribute {
 
     @Override
     public boolean equals(Object obj) {
-        return super.equals(obj) && Objects.equals(path, ((FieldAttribute) obj).path);
+        return super.equals(obj)
+            && Objects.equals(path, ((FieldAttribute) obj).path)
+            && Objects.equals(field, ((FieldAttribute) obj).field);
     }
 
     @Override
@@ -152,5 +154,9 @@ public class FieldAttribute extends TypedAttribute {
 
     public EsField field() {
         return field;
+    }
+
+    public FieldAttribute withField(EsField esField) {
+        return new FieldAttribute(source(), parent(), name(), esField, qualifier(), nullable(), id(), synthetic());
     }
 }
