@@ -7,7 +7,7 @@
 
 package org.elasticsearch.xpack.esql.type;
 
-import org.elasticsearch.xpack.ql.type.EsField;
+import org.elasticsearch.xpack.esql.core.type.EsField;
 
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +25,7 @@ import java.util.TreeMap;
  * TODO: Once QL and ESQL code bases are split, we should incorporate the error message from the QL version into this class.
  * Breaking the inheritance requires that we port IndexResolver to ESQL, so it cannot be done yet.
  */
-public class InvalidMappedField extends org.elasticsearch.xpack.ql.type.InvalidMappedField {
+public class InvalidMappedField extends org.elasticsearch.xpack.esql.core.type.InvalidMappedField {
     private final Map<String, Set<String>> typesToIndices;
 
     public InvalidMappedField(String name, String errorMessage, Map<String, EsField> properties) {
