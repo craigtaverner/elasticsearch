@@ -16,8 +16,6 @@ FROM sample_data
 ;
 
 singleIndexWhereIpLike
-required_feature: esql.union_types
-
 FROM sample_data
 | WHERE TO_STRING(client_ip) LIKE "172.21.2.*"
 | KEEP @timestamp, event_duration, message
@@ -77,8 +75,8 @@ count:long  |  client_ip:ip
 ;
 
 multiIndexIpString
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_str METADATA _index
 | EVAL client_ip = TO_IP(client_ip)
@@ -104,8 +102,8 @@ sample_data_str | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233         
 ;
 
 multiIndexIpStringRename
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_str METADATA _index
 | EVAL host_ip = TO_IP(client_ip)
@@ -131,8 +129,8 @@ sample_data_str | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233         
 ;
 
 multiIndexIpStringRenameToString
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_str METADATA _index
 | EVAL host_ip = TO_STRING(TO_IP(client_ip))
@@ -158,8 +156,8 @@ sample_data_str | 2023-10-23T12:15:03.360Z  |  172.21.2.162     |  3450233      
 ;
 
 multiIndexWhereIpString
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_str METADATA _index
 | WHERE STARTS_WITH(TO_STRING(client_ip), "172.21.2")
@@ -175,8 +173,8 @@ sample_data_str | 2023-10-23T12:15:03.360Z  |  3450233              |  Connected
 ;
 
 multiIndexWhereIpStringLike
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_str METADATA _index
 | WHERE TO_STRING(client_ip) LIKE "172.21.2.*"
@@ -192,7 +190,7 @@ sample_data_str | 2023-10-23T12:15:03.360Z  |  3450233              |  Connected
 ;
 
 multiIndexIpStringStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_str
 | EVAL client_ip = TO_IP(client_ip)
@@ -209,7 +207,7 @@ count:long  |  client_ip:ip
 ;
 
 multiIndexIpStringRenameStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_str
 | EVAL host_ip = TO_IP(client_ip)
@@ -226,7 +224,7 @@ count:long  |  host_ip:ip
 ;
 
 multiIndexIpStringRenameToStringStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_str
 | EVAL host_ip = TO_STRING(TO_IP(client_ip))
@@ -243,7 +241,7 @@ count:long  |  host_ip:keyword
 ;
 
 multiIndexWhereIpStringStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_str
 | WHERE STARTS_WITH(TO_STRING(client_ip), "172.21.2")
@@ -258,8 +256,8 @@ count:long  |  message:keyword
 ;
 
 multiIndexTsLong
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_ts_long METADATA _index
 | EVAL @timestamp = TO_DATETIME(@timestamp)
@@ -285,8 +283,8 @@ sample_data_ts_long | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233     
 ;
 
 multiIndexTsLongRename
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_ts_long METADATA _index
 | EVAL ts = TO_DATETIME(@timestamp)
@@ -312,8 +310,8 @@ sample_data_ts_long | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233     
 ;
 
 multiIndexTsLongRenameToString
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_ts_long METADATA _index
 | EVAL ts = TO_STRING(TO_DATETIME(@timestamp))
@@ -339,8 +337,8 @@ sample_data_ts_long | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233     
 ;
 
 multiIndexWhereTsLong
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data, sample_data_ts_long METADATA _index
 | WHERE TO_LONG(@timestamp) < 1698068014937
@@ -356,7 +354,7 @@ sample_data_ts_long  | 172.21.2.162  |  3450233              |  Connected to 10.
 ;
 
 multiIndexTsLongStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_ts_long
 | EVAL @timestamp = DATE_TRUNC(1 hour, TO_DATETIME(@timestamp))
@@ -371,7 +369,7 @@ count:long  |  @timestamp:date
 ;
 
 multiIndexTsLongRenameStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_ts_long
 | EVAL hour = DATE_TRUNC(1 hour, TO_DATETIME(@timestamp))
@@ -386,7 +384,7 @@ count:long  |  hour:date
 ;
 
 multiIndexTsLongRenameToDatetimeToStringStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_ts_long
 | EVAL hour = LEFT(TO_STRING(TO_DATETIME(@timestamp)), 13)
@@ -401,7 +399,7 @@ count:long  |  hour:keyword
 ;
 
 multiIndexTsLongRenameToStringStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_ts_long
 | EVAL mess = LEFT(TO_STRING(@timestamp), 7)
@@ -419,7 +417,7 @@ count:long  |  mess:keyword
 ;
 
 multiIndexWhereTsLongStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data, sample_data_ts_long
 | WHERE TO_LONG(@timestamp) < 1698068014937
@@ -434,8 +432,8 @@ count:long  |  message:keyword
 ;
 
 multiIndexIpStringTsLong
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data* METADATA _index
 | EVAL @timestamp = TO_DATETIME(@timestamp), client_ip = TO_IP(client_ip)
@@ -468,8 +466,8 @@ sample_data_ts_long | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233     
 ;
 
 multiIndexIpStringTsLongRename
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data* METADATA _index
 | EVAL ts = TO_DATETIME(@timestamp), host_ip = TO_IP(client_ip)
@@ -502,8 +500,8 @@ sample_data_ts_long | 2023-10-23T12:15:03.360Z  |  172.21.2.162  |  3450233     
 ;
 
 multiIndexIpStringTsLongRenameToString
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data* METADATA _index
 | EVAL ts = TO_STRING(TO_DATETIME(@timestamp)), host_ip = TO_STRING(TO_IP(client_ip))
@@ -536,8 +534,8 @@ sample_data_ts_long | 2023-10-23T12:15:03.360Z  |  172.21.2.162     |  3450233  
 ;
 
 multiIndexWhereIpStringTsLong
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data* METADATA _index
 | WHERE TO_LONG(@timestamp) < 1698068014937 AND TO_STRING(client_ip) == "172.21.2.162"
@@ -552,7 +550,7 @@ sample_data_ts_long  |  3450233              |  Connected to 10.1.0.3
 ;
 
 multiIndexWhereIpStringTsLongStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data*
 | WHERE TO_LONG(@timestamp) < 1698068014937 AND TO_STRING(client_ip) == "172.21.2.162"
@@ -566,8 +564,8 @@ count:long  |  message:keyword
 ;
 
 multiIndexWhereIpStringLikeTsLong
-required_feature: esql.union_types
-required_feature: esql.metadata_fields
+required_capability: union_types
+required_capability: metadata_fields
 
 FROM sample_data* METADATA _index
 | WHERE TO_LONG(@timestamp) < 1698068014937 AND TO_STRING(client_ip) LIKE "172.21.2.16?"
@@ -582,7 +580,7 @@ sample_data_ts_long  |  3450233              |  Connected to 10.1.0.3
 ;
 
 multiIndexWhereIpStringLikeTsLongStats
-required_feature: esql.union_types
+required_capability: union_types
 
 FROM sample_data*
 | WHERE TO_LONG(@timestamp) < 1698068014937 AND TO_STRING(client_ip) LIKE "172.21.2.16?"
