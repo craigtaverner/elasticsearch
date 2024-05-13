@@ -11,7 +11,6 @@ import org.elasticsearch.xpack.ql.QlIllegalArgumentException;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -21,55 +20,18 @@ import java.util.TreeMap;
 public class InvalidMappedField extends EsField {
 
     private final String errorMessage;
-    private final Map<String, Set<String>> typesToIndices;
 
     public InvalidMappedField(String name, String errorMessage, Map<String, EsField> properties) {
-        this(name, errorMessage, properties, Map.of());
+        super(name, DataTypes.UNSUPPORTED, properties, false);
+        this.errorMessage = errorMessage;
     }
 
     public InvalidMappedField(String name, String errorMessage) {
-        this(name, errorMessage, new TreeMap<>());
+        this(name, errorMessage, new TreeMap<String, EsField>());
     }
 
     public InvalidMappedField(String name) {
-        this(name, StringUtils.EMPTY, new TreeMap<>());
-    }
-
-    /**
-     * Constructor supporting union types, used in ES|QL.
-     */
-    public InvalidMappedField(String name, Map<String, Set<String>> typesToIndices) {
-        this(name, makeErrorMessage(typesToIndices), new TreeMap<>(), typesToIndices);
-    }
-
-    private InvalidMappedField(String name, String errorMessage, Map<String, EsField> properties, Map<String, Set<String>> typesToIndices) {
-        super(name, DataTypes.UNSUPPORTED, properties, false);
-        this.errorMessage = errorMessage;
-        this.typesToIndices = typesToIndices;
-    }
-
-    private static String makeErrorMessage(Map<String, Set<String>> typesToIndices) {
-        StringBuilder errorMessage = new StringBuilder();
-        errorMessage.append("mapped as [");
-        errorMessage.append(typesToIndices.size());
-        errorMessage.append("] incompatible types: ");
-        boolean first = true;
-        for (Map.Entry<String, Set<String>> e : typesToIndices.entrySet()) {
-            if (first) {
-                first = false;
-            } else {
-                errorMessage.append(", ");
-            }
-            errorMessage.append("[");
-            errorMessage.append(e.getKey());
-            errorMessage.append("] in ");
-            errorMessage.append(e.getValue());
-        }
-        return errorMessage.toString();
-    }
-
-    public Map<String, Set<String>> getTypesToIndices() {
-        return typesToIndices;
+        this(name, StringUtils.EMPTY, new TreeMap<String, EsField>());
     }
 
     public String errorMessage() {
