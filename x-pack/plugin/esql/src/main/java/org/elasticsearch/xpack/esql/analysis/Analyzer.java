@@ -1111,17 +1111,22 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private Expression resolveConvertFunction(AbstractConvertFunction convert, List<FieldAttribute> unionFieldAttributes) {
             if (convert.field() instanceof FieldAttribute fa && fa.field() instanceof InvalidMappedField mtf) {
                 HashMap<TypeResolutionKey, Expression> typeResolutions = new HashMap<>();
+                Set<DataType> supportedTypes = convert.supportedTypes();
                 mtf.getTypesToIndices().keySet().forEach(typeName -> {
                     DataType type = DataType.fromTypeName(typeName);
-                    TypeResolutionKey key = new TypeResolutionKey(fa.name(), type);
-                    var concreteConvert = typeSpecificConvert(convert, fa.source(), type, mtf);
-                    typeResolutions.put(key, concreteConvert);
+                    if (supportedTypes.contains(type)) {
+                        TypeResolutionKey key = new TypeResolutionKey(fa.name(), type);
+                        var concreteConvert = typeSpecificConvert(convert, fa.source(), type, mtf);
+                        typeResolutions.put(key, concreteConvert);
+                    }
                 });
-                // Replace the entire convert function with a new FieldAttribute (containing type conversion knowledge)
-                var resolvedField = resolvedMultiTypeEsField(mtf, typeResolutions);
-                var unionFieldAttribute = new FieldAttribute(fa.source(), fa.name(), resolvedField);  // Generates new ID for the field
-                unionFieldAttributes.add(unionFieldAttribute);
-                return unionFieldAttribute;
+                // If all mapped types were resolved, create a new FieldAttribute with the resolved MultiTypeEsField
+                if (typeResolutions.size() == mtf.getTypesToIndices().size()) {
+                    var resolvedField = resolvedMultiTypeEsField(mtf, typeResolutions);
+                    var unionFieldAttribute = new FieldAttribute(fa.source(), fa.name(), resolvedField);  // Generates new ID for the field
+                    unionFieldAttributes.add(unionFieldAttribute);
+                    return unionFieldAttribute;
+                }
             } else if (convert.field() instanceof AbstractConvertFunction subConvert) {
                 return convert.replaceChildren(Collections.singletonList(resolveConvertFunction(subConvert, unionFieldAttributes)));
             }
