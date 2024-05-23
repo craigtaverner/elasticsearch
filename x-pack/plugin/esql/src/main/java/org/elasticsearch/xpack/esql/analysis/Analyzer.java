@@ -1089,7 +1089,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             if (unionFieldAttributes.isEmpty()) {
                 return plan;
             }
-            // Otherwise, add generated fields to EsRelation, so these new attributes will appear in the OutputExec of the Fragment
+
+            // Otherwise drop the converted attributes after the alias function, as they are only needed for this function, and
+            // the original version of the attribute should still be seen as unconverted.
+            plan = dropConvertedAttributes(plan, unionFieldAttributes);
+
+            // And add generated fields to EsRelation, so these new attributes will appear in the OutputExec of the Fragment
             // and thereby get used in FieldExtractExec
             plan = plan.transformDown(EsRelation.class, esr -> {
                 List<Attribute> output = esr.output();
@@ -1100,11 +1105,6 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     }
                 }
                 if (missing.isEmpty() == false) {
-                    // TODO: Removing the old one here fixes several bugs, but has the side effect of allowing the converted field
-                    // to persist in the output, even if that is not exactly the semantic intent.
-                    // We should rather keep both old and new here and drop the new one in the alias function.
-                    // This happens anyway if we alias to the same name, but does not happen if we alias to another name.
-                    output.removeIf(a -> missing.stream().anyMatch(fa -> a.name().equals(fa.name())));
                     output.addAll(missing);
                     return new EsRelation(esr.source(), esr.index(), output, esr.indexMode(), esr.frozen());
                 }
@@ -1113,24 +1113,33 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return plan;
         }
 
+        private LogicalPlan dropConvertedAttributes(LogicalPlan plan, List<FieldAttribute> unionFieldAttributes) {
+            List<NamedExpression> projections = new ArrayList<>(plan.output());
+            for (var e : unionFieldAttributes) {
+                projections.removeIf(p -> p.id().equals(e.id()));
+            }
+            if (projections.size() != plan.output().size()) {
+                return new EsqlProject(plan.source(), plan, projections);
+            }
+            return plan;
+        }
+
         private Expression resolveConvertFunction(AbstractConvertFunction convert, List<FieldAttribute> unionFieldAttributes) {
-            if (convert.field() instanceof FieldAttribute fa && fa.field() instanceof InvalidMappedField mtf) {
+            if (convert.field() instanceof FieldAttribute fa && fa.field() instanceof InvalidMappedField imf) {
                 HashMap<TypeResolutionKey, Expression> typeResolutions = new HashMap<>();
                 Set<DataType> supportedTypes = convert.supportedTypes();
-                mtf.getTypesToIndices().keySet().forEach(typeName -> {
+                imf.getTypesToIndices().keySet().forEach(typeName -> {
                     DataType type = DataType.fromTypeName(typeName);
                     if (supportedTypes.contains(type)) {
                         TypeResolutionKey key = new TypeResolutionKey(fa.name(), type);
-                        var concreteConvert = typeSpecificConvert(convert, fa.source(), type, mtf);
+                        var concreteConvert = typeSpecificConvert(convert, fa.source(), type, imf);
                         typeResolutions.put(key, concreteConvert);
                     }
                 });
                 // If all mapped types were resolved, create a new FieldAttribute with the resolved MultiTypeEsField
-                if (typeResolutions.size() == mtf.getTypesToIndices().size()) {
-                    var resolvedField = resolvedMultiTypeEsField(mtf, typeResolutions);
-                    var unionFieldAttribute = new FieldAttribute(fa.source(), fa.name(), resolvedField);  // Generates new ID for the field
-                    unionFieldAttributes.add(unionFieldAttribute);
-                    return unionFieldAttribute;
+                if (typeResolutions.size() == imf.getTypesToIndices().size()) {
+                    var resolvedField = resolvedMultiTypeEsField(imf, typeResolutions);
+                    return createIfDoesNotAlreadyExist(fa, resolvedField, unionFieldAttributes);
                 }
             } else if (convert.field() instanceof AbstractConvertFunction subConvert) {
                 return convert.replaceChildren(Collections.singletonList(resolveConvertFunction(subConvert, unionFieldAttributes)));
@@ -1138,16 +1147,32 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return convert;
         }
 
-        private MultiTypeEsField resolvedMultiTypeEsField(InvalidMappedField mtf, HashMap<TypeResolutionKey, Expression> typeResolutions) {
+        private Expression createIfDoesNotAlreadyExist(
+            FieldAttribute fa,
+            MultiTypeEsField resolvedField,
+            List<FieldAttribute> unionFieldAttributes
+        ) {
+            var unionFieldAttribute = new FieldAttribute(fa.source(), fa.name(), resolvedField);  // Generates new ID for the field
+            int existingIndex = unionFieldAttributes.indexOf(unionFieldAttribute);
+            if (existingIndex >= 0) {
+                // Do not generate multiple name/type combinations with different IDs
+                return unionFieldAttributes.get(existingIndex);
+            } else {
+                unionFieldAttributes.add(unionFieldAttribute);
+                return unionFieldAttribute;
+            }
+        }
+
+        private MultiTypeEsField resolvedMultiTypeEsField(InvalidMappedField imf, HashMap<TypeResolutionKey, Expression> typeResolutions) {
             Map<String, Expression> typesToConversionExpressions = new HashMap<>();
-            mtf.getTypesToIndices().forEach((typeName, indexNames) -> {
+            imf.getTypesToIndices().forEach((typeName, indexNames) -> {
                 DataType type = DataType.fromTypeName(typeName);
-                TypeResolutionKey key = new TypeResolutionKey(mtf.getName(), type);
+                TypeResolutionKey key = new TypeResolutionKey(imf.getName(), type);
                 if (typeResolutions.containsKey(key)) {
                     typesToConversionExpressions.put(typeName, typeResolutions.get(key));
                 }
             });
-            return MultiTypeEsField.resolveFrom(mtf, typesToConversionExpressions);
+            return MultiTypeEsField.resolveFrom(imf, typesToConversionExpressions);
         }
 
         private Expression typeSpecificConvert(AbstractConvertFunction convert, Source source, DataType type, InvalidMappedField mtf) {
