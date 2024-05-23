@@ -1100,6 +1100,11 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     }
                 }
                 if (missing.isEmpty() == false) {
+                    // TODO: Removing the old one here fixes several bugs, but has the side effect of allowing the converted field
+                    // to persist in the output, even if that is not exactly the semantic intent.
+                    // We should rather keep both old and new here and drop the new one in the alias function.
+                    // This happens anyway if we alias to the same name, but does not happen if we alias to another name.
+                    output.removeIf(a -> missing.stream().anyMatch(fa -> a.name().equals(fa.name())));
                     output.addAll(missing);
                     return new EsRelation(esr.source(), esr.index(), output, esr.indexMode(), esr.frozen());
                 }

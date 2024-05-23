@@ -311,6 +311,51 @@ load two indices, convert and then drop ambiguous field event_duration:
 
   - length: { values: 14 }
 
+---
+load two indices, convert, rename and then drop ambiguous field event_duration:
+  - do:
+      allowed_warnings_regex:
+        - "No limit defined, adding default limit of \\[.*\\]"
+      esql.query:
+        body:
+          version: 2024.04.01
+          query: 'FROM events_ip_* | EVAL x = TO_LONG(event_duration) | DROP event_duration'
+
+  - length: { values: 14 }
+
+---
+# This test needs to change to produce unsupported/null for the original field name
+load two indices, convert, rename but not drop ambiguous field event_duration:
+  - do:
+      allowed_warnings_regex:
+        - "No limit defined, adding default limit of \\[.*\\]"
+      esql.query:
+        body:
+          version: 2024.04.01
+          query: 'FROM events_ip_* | EVAL x = TO_LONG(event_duration) | SORT @timestamp DESC'
+
+  - match: { columns.0.name: "@timestamp" }
+  - match: { columns.0.type: "date" }
+  - match: { columns.1.name: "client_ip" }
+  - match: { columns.1.type: "ip" }
+  - match: { columns.2.name: "message" }
+  - match: { columns.2.type: "keyword" }
+  - match: { columns.3.name: "event_duration" }
+  - match: { columns.3.type: "long" }
+  - match: { columns.4.name: "x" }
+  - match: { columns.4.type: "long" }
+  - length: { values: 14 }
+  - match: { values.0.0: "2023-10-23T13:55:01.543Z" }
+  - match: { values.0.1: "172.21.3.15" }
+  - match: { values.0.2: "Connected to 10.1.0.1" }
+  - match: { values.0.3: 1756467 }
+  - match: { values.0.4: 1756467 }
+  - match: { values.1.0: "2023-10-23T13:55:01.543Z" }
+  - match: { values.1.1: "172.21.3.15" }
+  - match: { values.1.2: "Connected to 10.1.0.1" }
+  - match: { values.1.3: 1756467 }
+  - match: { values.1.4: 1756467 }
+
 ############################################################################################################
 # Test two indices where the IP address is mapped as an IP and as a KEYWORD
 
@@ -419,6 +464,51 @@ load two indices, convert and then drop ambiguous field client_ip:
           query: 'FROM events_*_long | EVAL client_ip = TO_IP(client_ip) | DROP client_ip'
 
   - length: { values: 14 }
+
+---
+load two indices, convert, rename and then drop ambiguous field client_ip:
+  - do:
+      allowed_warnings_regex:
+        - "No limit defined, adding default limit of \\[.*\\]"
+      esql.query:
+        body:
+          version: 2024.04.01
+          query: 'FROM events_*_long | EVAL x = TO_IP(client_ip) | DROP client_ip'
+
+  - length: { values: 14 }
+
+---
+# This test needs to change to produce unsupported/null for the original field name
+load two indices, convert, rename but not drop ambiguous field client_ip:
+  - do:
+      allowed_warnings_regex:
+        - "No limit defined, adding default limit of \\[.*\\]"
+      esql.query:
+        body:
+          version: 2024.04.01
+          query: 'FROM events_*_long | EVAL x = TO_IP(client_ip) | SORT @timestamp DESC'
+
+  - match: { columns.0.name: "@timestamp" }
+  - match: { columns.0.type: "date" }
+  - match: { columns.1.name: "event_duration" }
+  - match: { columns.1.type: "long" }
+  - match: { columns.2.name: "message" }
+  - match: { columns.2.type: "keyword" }
+  - match: { columns.3.name: "client_ip" }
+  - match: { columns.3.type: "ip" }
+  - match: { columns.4.name: "x" }
+  - match: { columns.4.type: "ip" }
+  - length: { values: 14 }
+  - match: { values.0.0: "2023-10-23T13:55:01.543Z" }
+  - match: { values.0.1: 1756467 }
+  - match: { values.0.2: "Connected to 10.1.0.1" }
+  - match: { values.0.3: "172.21.3.15" }
+  - match: { values.0.4: "172.21.3.15" }
+  - match: { values.1.0: "2023-10-23T13:55:01.543Z" }
+  - match: { values.1.1: 1756467 }
+  - match: { values.1.2: "Connected to 10.1.0.1" }
+  - match: { values.1.3: "172.21.3.15" }
+  - match: { values.1.4: "172.21.3.15" }
 
 ############################################################################################################
 # Test four indices with both the client_IP (IP and KEYWORD) and event_duration (LONG and KEYWORD) mappings
