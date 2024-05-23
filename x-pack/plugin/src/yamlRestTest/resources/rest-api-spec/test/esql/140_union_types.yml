@@ -1,8 +1,12 @@
 setup:
-  - skip:
-      version: " - 8.14.99"
+  - requires:
+      capabilities:
+        - method: POST
+          path: /_query
+          parameters: [method, path, parameters, capabilities]
+          capabilities: [union_types]
       reason: "Union types introduced in 8.15.0"
-      features: allowed_warnings_regex
+      test_runner_features: [capabilities, allowed_warnings_regex]
 
   - do:
       indices.create:
