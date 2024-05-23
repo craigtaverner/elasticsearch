@@ -109,6 +109,9 @@ public final class CsvAssert {
             if (actualType == Type.INTEGER && expectedType == Type.LONG) {
                 actualType = Type.LONG;
             }
+            if (actualType == null) {
+                actualType = Type.NULL;
+            }
 
             assertEquals(
                 "Different column type for column [" + expectedName + "] (" + expectedType + " != " + actualType + ")",
