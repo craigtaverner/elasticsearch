@@ -47,10 +47,6 @@ public class InvalidMappedField extends EsField {
         this(name, StringUtils.EMPTY, new TreeMap<>());
     }
 
-    private InvalidMappedField(StreamInput in) throws IOException {
-        this(in.readString(), in.readString(), in.readImmutableMap(StreamInput::readString, i -> i.readNamedWriteable(EsField.class)));
-    }
-
     /**
      * Constructor supporting union types, used in ES|QL.
      */
@@ -62,6 +58,10 @@ public class InvalidMappedField extends EsField {
         super(name, DataType.UNSUPPORTED, properties, false);
         this.errorMessage = errorMessage;
         this.typesToIndices = typesToIndices;
+    }
+
+    private InvalidMappedField(StreamInput in) throws IOException {
+        this(in.readString(), in.readString(), in.readImmutableMap(StreamInput::readString, i -> i.readNamedWriteable(EsField.class)));
     }
 
     @Override
