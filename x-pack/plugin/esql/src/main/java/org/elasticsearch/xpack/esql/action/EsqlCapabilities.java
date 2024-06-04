@@ -84,7 +84,6 @@ public class EsqlCapabilities {
         caps.add(FN_MV_APPEND);
         caps.add(REPEAT);
         caps.add(UNION_TYPES);
-        caps.add(FN_MV_APPEND);
 
         if (Build.current().isSnapshot()) {
             caps.add(LOOKUP_COMMAND);
