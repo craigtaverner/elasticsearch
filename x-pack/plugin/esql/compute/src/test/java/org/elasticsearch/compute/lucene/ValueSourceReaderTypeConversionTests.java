@@ -84,7 +84,6 @@ import org.elasticsearch.xcontent.XContentBuilder;
 import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.xcontent.json.JsonXContent;
 import org.elasticsearch.xpack.esql.core.type.DataType;
-import org.elasticsearch.xpack.esql.core.type.DataTypes;
 import org.elasticsearch.xpack.esql.core.util.StringUtils;
 import org.hamcrest.Matcher;
 import org.junit.After;
@@ -108,7 +107,7 @@ import java.util.stream.LongStream;
 
 import static org.elasticsearch.test.MapMatcher.assertMap;
 import static org.elasticsearch.test.MapMatcher.matchesMap;
-import static org.elasticsearch.xpack.esql.core.type.DataTypes.IP;
+import static org.elasticsearch.xpack.esql.core.type.DataType.IP;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -154,15 +153,15 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
                 "ip",
                 new TestFieldType<>("ip", IP, d -> "192.169.0." + d % 256, Checks::unionIPsAsStrings),
                 "duration",
-                new TestFieldType<>("duration", DataTypes.LONG, d -> (long) d, Checks::unionDurationsAsStrings)
+                new TestFieldType<>("duration", DataType.LONG, d -> (long) d, Checks::unionDurationsAsStrings)
             )
         );
         addIndex(
             Map.of(
                 "ip",
-                new TestFieldType<>("ip", DataTypes.KEYWORD, d -> "192.169.0." + d % 256, Checks::unionIPsAsStrings),
+                new TestFieldType<>("ip", DataType.KEYWORD, d -> "192.169.0." + d % 256, Checks::unionIPsAsStrings),
                 "duration",
-                new TestFieldType<>("duration", DataTypes.KEYWORD, d -> Integer.toString(d), Checks::unionDurationsAsStrings)
+                new TestFieldType<>("duration", DataType.KEYWORD, d -> Integer.toString(d), Checks::unionDurationsAsStrings)
             )
         );
     }
@@ -865,7 +864,7 @@ public class ValueSourceReaderTypeConversionTests extends AnyOperatorTestCase {
         for (TestFieldType<?> fieldType : indexMappingConfig.fieldTypes.values()) {
             r.add(
                 new FieldCase(
-                    fieldInfo(fieldType.name, ElementType.BYTES_REF, DataTypes.KEYWORD),
+                    fieldInfo(fieldType.name, ElementType.BYTES_REF, DataType.KEYWORD),
                     fieldType.checkResults,
                     StatusChecks::unionFromDocValues
                 )

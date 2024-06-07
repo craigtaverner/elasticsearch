@@ -154,7 +154,6 @@ load single index ip_long:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_long METADATA _index | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
   - match: { columns.0.name: "_index" }
@@ -184,7 +183,6 @@ load single index keyword_keyword:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_keyword_keyword METADATA _index | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
   - match: { columns.0.name: "_index" }
@@ -214,7 +212,6 @@ load two indices, showing unsupported type and null value for event_duration:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* METADATA _index | SORT _index ASC, @timestamp DESC'
 
   - length: { values: 14 }
@@ -247,7 +244,6 @@ load two indices with no conversion function, but needs TO_LONG conversion:
       catch: '/Cannot use field \[event_duration\] due to ambiguities being mapped as \[2\] incompatible types: \[keyword\] in \[events_ip_keyword\], \[long\] in \[events_ip_long\]/'
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* METADATA _index | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
 ---
@@ -256,7 +252,6 @@ load two indices with incorrect conversion function, TO_IP instead of TO_LONG:
       catch: '/Cannot use field \[event_duration\] due to ambiguities being mapped as \[2\] incompatible types: \[keyword\] in \[events_ip_keyword\], \[long\] in \[events_ip_long\]/'
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* METADATA _index | EVAL event_duration = TO_IP(event_duration) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
 ---
@@ -266,7 +261,6 @@ load two indices with single conversion function TO_LONG:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* METADATA _index | EVAL event_duration = TO_LONG(event_duration) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
   - match: { columns.0.name: "_index" }
@@ -298,7 +292,6 @@ load two indices and drop ambiguous field event_duration:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* | DROP event_duration'
 
   - length: { values: 14 }
@@ -310,7 +303,6 @@ load two indices, convert and then drop ambiguous field event_duration:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* | EVAL event_duration = TO_LONG(event_duration) | DROP event_duration'
 
   - length: { values: 14 }
@@ -322,7 +314,6 @@ load two indices, convert, rename and then drop ambiguous field event_duration:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* | EVAL x = TO_LONG(event_duration) | DROP event_duration'
 
   - length: { values: 14 }
@@ -335,7 +326,6 @@ load two indices, convert, rename but not drop ambiguous field event_duration:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_ip_* | EVAL x = TO_LONG(event_duration), y = TO_STRING(event_duration), z = TO_LONG(event_duration) | SORT @timestamp DESC'
 
   - match: { columns.0.name: "@timestamp" }
@@ -378,7 +368,6 @@ load two indices, showing unsupported type and null value for client_ip:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long METADATA _index | SORT _index ASC, @timestamp DESC'
 
   - match: { columns.0.name: "@timestamp" }
@@ -409,7 +398,6 @@ load two indices with no conversion function, but needs TO_IP conversion:
       catch: '/Cannot use field \[client_ip\] due to ambiguities being mapped as \[2\] incompatible types: \[ip\] in \[events_ip_long\], \[keyword\] in \[events_keyword_long\]/'
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long METADATA _index | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
 ---
@@ -418,7 +406,6 @@ load two indices with incorrect conversion function, TO_LONG instead of TO_IP:
       catch: '/Cannot use field \[client_ip\] due to ambiguities being mapped as \[2\] incompatible types: \[ip\] in \[events_ip_long\], \[keyword\] in \[events_keyword_long\]/'
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long METADATA _index | EVAL client_ip = TO_LONG(client_ip) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
 ---
@@ -428,7 +415,6 @@ load two indices with single conversion function TO_IP:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long METADATA _index | EVAL client_ip = TO_IP(client_ip) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
   - match: { columns.0.name: "_index" }
@@ -460,7 +446,6 @@ load two indices and drop ambiguous field client_ip:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long | DROP client_ip'
 
   - length: { values: 14 }
@@ -472,7 +457,6 @@ load two indices, convert and then drop ambiguous field client_ip:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long | EVAL client_ip = TO_IP(client_ip) | DROP client_ip'
 
   - length: { values: 14 }
@@ -484,7 +468,6 @@ load two indices, convert, rename and then drop ambiguous field client_ip:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long | EVAL x = TO_IP(client_ip) | DROP client_ip'
 
   - length: { values: 14 }
@@ -497,7 +480,6 @@ load two indices, convert, rename but not drop ambiguous field client_ip:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_*_long | EVAL x = TO_IP(client_ip), y = TO_STRING(client_ip), z = TO_IP(client_ip) | SORT @timestamp DESC'
 
   - match: { columns.0.name: "@timestamp" }
@@ -539,7 +521,6 @@ load four indices with single conversion function TO_LONG:
       catch: '/Cannot use field \[client_ip\] due to ambiguities being mapped as \[2\] incompatible types: \[ip\] in \[events_ip_keyword, events_ip_long\], \[keyword\] in \[events_keyword_keyword, events_keyword_long\]/'
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_* METADATA _index | EVAL event_duration = TO_LONG(event_duration) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
 ---
@@ -548,7 +529,6 @@ load four indices with single conversion function TO_IP:
       catch: '/Cannot use field \[event_duration\] due to ambiguities being mapped as \[2\] incompatible types: \[keyword\] in \[events_ip_keyword, events_keyword_keyword\], \[long\] in \[events_ip_long, events_keyword_long\]/'
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_* METADATA _index | EVAL client_ip = TO_IP(client_ip) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
 ---
@@ -558,7 +538,6 @@ load four indices with multiple conversion functions TO_LONG and TO_IP:
         - "No limit defined, adding default limit of \\[.*\\]"
       esql.query:
         body:
-          version: 2024.04.01
           query: 'FROM events_* METADATA _index | EVAL event_duration = TO_LONG(event_duration), client_ip = TO_IP(client_ip) | KEEP _index, @timestamp, client_ip, event_duration, message | SORT _index ASC, @timestamp DESC'
 
   - match: { columns.0.name: "_index" }
