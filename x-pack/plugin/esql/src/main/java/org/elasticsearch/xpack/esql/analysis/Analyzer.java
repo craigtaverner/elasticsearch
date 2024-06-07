@@ -128,7 +128,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     private static final Iterable<RuleExecutor.Batch<LogicalPlan>> rules;
 
     static {
-        var init = new Batch<>("Initialize", Limiter.ONCE, new ResolveTable(), new ResolveEnrich(), new ResolveFunctions());
+        var init = new Batch<>(
+            "Initialize",
+            Limiter.ONCE,
+            new ResolveTable(),
+            new ResolveEnrich(),
+            new ResolveLookupTables(),
+            new ResolveFunctions()
+        );
         var resolution = new Batch<>(
             "Resolution",
             new ResolveRefs(),
