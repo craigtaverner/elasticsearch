@@ -119,8 +119,8 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             MappedFieldType.FieldExtractPreference fieldExtractPreference = PlannerUtils.extractPreference(docValuesAttrs.contains(attr));
             ElementType elementType = PlannerUtils.toElementType(dataType, fieldExtractPreference);
             String fieldName = attr.name();
-            boolean isSupported = EsqlDataTypes.isUnsupported(dataType);
-            IntFunction<BlockLoader> loader = s -> getBlockLoaderFor(s, fieldName, isSupported, fieldExtractPreference, unionTypes);
+            boolean isUnsupported = EsqlDataTypes.isUnsupported(dataType);
+            IntFunction<BlockLoader> loader = s -> getBlockLoaderFor(s, fieldName, isUnsupported, fieldExtractPreference, unionTypes);
             fields.add(new ValuesSourceReaderOperator.FieldInfo(fieldName, elementType, loader));
         }
         return source.with(new ValuesSourceReaderOperator.Factory(fields, readers, docChannel), layout.build());
@@ -129,12 +129,12 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
     private BlockLoader getBlockLoaderFor(
         int shardId,
         String fieldName,
-        boolean isSupported,
+        boolean isUnsupported,
         MappedFieldType.FieldExtractPreference fieldExtractPreference,
         MultiTypeEsField unionTypes
     ) {
         DefaultShardContext shardContext = (DefaultShardContext) shardContexts.get(shardId);
-        BlockLoader blockLoader = shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference);
+        BlockLoader blockLoader = shardContext.blockLoader(fieldName, isUnsupported, fieldExtractPreference);
         if (unionTypes != null) {
             String indexName = shardContext.ctx.index().getName();
             Expression conversion = unionTypes.getConversionExpressionForIndex(indexName);

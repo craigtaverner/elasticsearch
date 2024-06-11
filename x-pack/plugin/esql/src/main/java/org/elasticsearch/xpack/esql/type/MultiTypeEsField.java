@@ -57,7 +57,6 @@ public class MultiTypeEsField extends EsField {
             } else if (resolvedDataType != convertExpr.dataType()) {
                 throw new IllegalArgumentException("Resolved data type mismatch: " + resolvedDataType + " != " + convertExpr.dataType());
             }
-
             for (String indexName : indices) {
                 indexToConversionExpressions.put(indexName, convertExpr);
             }

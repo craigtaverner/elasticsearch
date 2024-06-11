@@ -239,6 +239,7 @@ public class CsvTests extends ESTestCase {
             assumeFalse("enrich can't load fields in csv tests", testCase.requiredCapabilities.contains(cap(EsqlFeatures.ENRICH_LOAD)));
             assumeFalse("can't load metrics in csv tests", testCase.requiredCapabilities.contains(cap(EsqlFeatures.METRICS_SYNTAX)));
             assumeFalse("multiple indices aren't supported", testCase.requiredCapabilities.contains(EsqlCapabilities.UNION_TYPES));
+
             doTest();
         } catch (Throwable th) {
             throw reworkException(th);
