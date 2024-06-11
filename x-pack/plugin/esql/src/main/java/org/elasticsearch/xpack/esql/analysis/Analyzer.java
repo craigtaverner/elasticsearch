@@ -1138,7 +1138,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 });
                 // If all mapped types were resolved, create a new FieldAttribute with the resolved MultiTypeEsField
                 if (typeResolutions.size() == imf.getTypesToIndices().size()) {
-                    var resolvedField = resolvedMultiTypeEsField(imf, typeResolutions);
+                    var resolvedField = resolvedMultiTypeEsField(fa, typeResolutions);
                     return createIfDoesNotAlreadyExist(fa, resolvedField, unionFieldAttributes);
                 }
             } else if (convert.field() instanceof AbstractConvertFunction subConvert) {
@@ -1163,11 +1163,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             }
         }
 
-        private MultiTypeEsField resolvedMultiTypeEsField(InvalidMappedField imf, HashMap<TypeResolutionKey, Expression> typeResolutions) {
+        private MultiTypeEsField resolvedMultiTypeEsField(FieldAttribute fa, HashMap<TypeResolutionKey, Expression> typeResolutions) {
             Map<String, Expression> typesToConversionExpressions = new HashMap<>();
+            InvalidMappedField imf = (InvalidMappedField) fa.field();
             imf.getTypesToIndices().forEach((typeName, indexNames) -> {
                 DataType type = DataType.fromTypeName(typeName);
-                TypeResolutionKey key = new TypeResolutionKey(imf.getName(), type);
+                TypeResolutionKey key = new TypeResolutionKey(fa.name(), type);
                 if (typeResolutions.containsKey(key)) {
                     typesToConversionExpressions.put(typeName, typeResolutions.get(key));
                 }

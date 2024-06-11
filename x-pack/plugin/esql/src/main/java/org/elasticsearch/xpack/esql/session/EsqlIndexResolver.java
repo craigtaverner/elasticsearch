@@ -209,7 +209,7 @@ public class EsqlIndexResolver {
                 typesToIndices.computeIfAbsent(type.typeName(), _key -> new TreeSet<>()).add(ir.getIndexName());
             }
         }
-        return new InvalidMappedField(fullName, typesToIndices);
+        return new InvalidMappedField(name, typesToIndices);
     }
 
     private EsField conflictingMetricTypes(String name, String fullName, FieldCapabilitiesResponse fieldCapsResponse) {

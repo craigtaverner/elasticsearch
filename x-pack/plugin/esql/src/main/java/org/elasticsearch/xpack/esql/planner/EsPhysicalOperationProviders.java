@@ -136,7 +136,6 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         DefaultShardContext shardContext = (DefaultShardContext) shardContexts.get(shardId);
         BlockLoader blockLoader = shardContext.blockLoader(fieldName, isSupported, fieldExtractPreference);
         if (unionTypes != null) {
-            assert unionTypes.getName().equals(fieldName);
             String indexName = shardContext.ctx.index().getName();
             Expression conversion = unionTypes.getConversionExpressionForIndex(indexName);
             return new TypeConvertingBlockLoader(blockLoader, (AbstractConvertFunction) conversion);
