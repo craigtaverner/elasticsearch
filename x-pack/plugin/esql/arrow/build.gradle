@@ -12,21 +12,36 @@ dependencies {
   compileOnly project(':x-pack:plugin:esql:compute')
   compileOnly project(':x-pack:plugin:esql-core')
   compileOnly project(':x-pack:plugin:mapper-version')
-  implementation('org.apache.arrow:arrow-vector:16.1.0')
-  implementation('org.apache.arrow:arrow-format:16.1.0')
-  implementation('org.apache.arrow:arrow-memory-core:16.1.0')
-  implementation('org.checkerframework:checker-qual:3.42.0')
-  implementation('com.google.flatbuffers:flatbuffers-java:23.5.26')
-  // Needed for the json arrow serialization, and loaded even if we don't use it.
-  implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}")
+
+  // arrow-vector
+  implementation("org.apache.arrow:arrow-vector:18.0.0")
   implementation("com.fasterxml.jackson.core:jackson-core:${versions.jackson}")
+  implementation("com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}")
   implementation("com.fasterxml.jackson.core:jackson-databind:${versions.jackson}")
+  implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${versions.jackson}")
+  implementation("com.google.flatbuffers:flatbuffers-java:24.3.25")
+  implementation("commons-codec:commons-codec:${versions.commonscodec}") // Arrow 18 -> commons-codec 1.17.1
   implementation("org.slf4j:slf4j-api:${versions.slf4j}")
-  runtimeOnly "org.slf4j:slf4j-nop:${versions.slf4j}"
+  implementation("org.immutables:value-annotations:2.10.1") // provided dependency
+
+  // arrow-format
+  implementation("org.apache.arrow:arrow-format:18.0.0")
+  // also depends on flatbuffers
+
+  // arrow-memory-core
+  implementation("org.apache.arrow:arrow-memory-core:18.0.0")
+  implementation("com.google.errorprone:error_prone_annotations:2.31.0") // provided dependency
+  implementation('org.checkerframework:checker-qual:3.48.1') // provided dependency
+  // also depends on value-annotations (provided dependency)
+
+  // arrow-memory-unsafe
+  testImplementation('org.apache.arrow:arrow-memory-unsafe:18.0.0')
+  // Not needed at runtime, only in tests
+  // also depends on value-annotations (provided dependency)
+
+  runtimeOnly("org.slf4j:slf4j-nop:${versions.slf4j}")
 
   testImplementation project(':test:framework')
-  testImplementation('org.apache.arrow:arrow-memory-unsafe:16.1.0')
-  testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${versions.jackson}")
 }
 
 tasks.named("dependencyLicenses").configure {
