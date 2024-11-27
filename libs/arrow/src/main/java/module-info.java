@@ -7,13 +7,9 @@
  * License v3.0 only", or the "Server Side Public License, v 1".
  */
 
-module org.elasticsearch.xcontent.impl {
-    requires transitive com.fasterxml.jackson.core;
-    requires com.fasterxml.jackson.dataformat.cbor;
-    requires com.fasterxml.jackson.dataformat.smile;
-    requires com.fasterxml.jackson.dataformat.yaml;
-    requires org.elasticsearch.base;
-    requires org.elasticsearch.xcontent;
+module org.elasticsearch.arrow {
 
-    provides org.elasticsearch.xcontent.spi.XContentProvider with org.elasticsearch.xcontent.provider.XContentProviderImpl;
+    requires transitive org.apache.arrow.vector;
+    requires transitive org.apache.arrow.memory.core;
+    requires org.apache.arrow.format;
 }

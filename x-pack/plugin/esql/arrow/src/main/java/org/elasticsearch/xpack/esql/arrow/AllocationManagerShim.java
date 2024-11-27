@@ -39,22 +39,22 @@ public class AllocationManagerShim implements AllocationManager.Factory {
      */
     @SuppressForbidden(reason = "Inject the default Arrow memory allocation manager")
     public static void init() {
-        try {
-            Class.forName("org.elasticsearch.test.ESTestCase");
-            logger.info("We're in tests, not disabling Arrow memory manager so we can use a real runtime for testing");
-        } catch (ClassNotFoundException notfound) {
-            logger.debug("Disabling Arrow's allocation manager");
-            AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                try {
-                    Field field = DefaultAllocationManagerOption.class.getDeclaredField("DEFAULT_ALLOCATION_MANAGER_FACTORY");
-                    field.setAccessible(true);
-                    field.set(null, new AllocationManagerShim());
-                } catch (Exception e) {
-                    throw new AssertionError("Can't init Arrow", e);
-                }
-                return null;
-            });
-        }
+//        try {
+//            Class.forName("org.elasticsearch.test.ESTestCase");
+//            logger.info("We're in tests, not disabling Arrow memory manager so we can use a real runtime for testing");
+//        } catch (ClassNotFoundException notfound) {
+//            logger.debug("Disabling Arrow's allocation manager");
+//            AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+//                try {
+//                    Field field = DefaultAllocationManagerOption.class.getDeclaredField("DEFAULT_ALLOCATION_MANAGER_FACTORY");
+//                    field.setAccessible(true);
+//                    field.set(null, new AllocationManagerShim());
+//                } catch (Exception e) {
+//                    throw new AssertionError("Can't init Arrow", e);
+//                }
+//                return null;
+//            });
+//        }
     }
 
     @Override
