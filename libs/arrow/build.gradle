@@ -11,6 +11,7 @@
 //apply plugin: 'elasticsearch.publish'
 
 dependencies {
+  implementation(project(":libs:x-content"))
 
   // jackson-core is provided by :libs:x-content:impl. If declared here, there's a module issue that prevents ES from starting:
   //
@@ -21,6 +22,7 @@ dependencies {
   //	at org.elasticsearch.xcontent@9.0.0-SNAPSHOT/org.elasticsearch.xcontent.XContentType.<clinit>(XContentType.java:28)
   //	at org.elasticsearch.server@9.0.0-SNAPSHOT/org.elasticsearch.common.settings.Setting.arrayToParsableString(Setting.java:1883)
   implementation(project(":libs:x-content:impl"))
+
 
   // arrow-vector
   api("org.apache.arrow:arrow-vector:18.0.0")

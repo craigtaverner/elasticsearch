@@ -12,10 +12,12 @@ package org.elasticsearch.rest.action.document;
 import org.elasticsearch.ElasticsearchParseException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteRequest;
+import org.elasticsearch.action.bulk.AbstractBulkRequestParser;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestParser;
 import org.elasticsearch.action.bulk.BulkShardRequest;
 import org.elasticsearch.action.bulk.IncrementalBulkService;
+import org.elasticsearch.action.bulk.arrow.BulkArrowRequestParser;
 import org.elasticsearch.action.support.ActiveShardCount;
 import org.elasticsearch.client.internal.node.NodeClient;
 import org.elasticsearch.cluster.metadata.DataStream;
@@ -160,7 +162,13 @@ public class RestBulkAction extends BaseRestHandler {
         ChunkHandler(boolean allowExplicitIndex, RestRequest request, Supplier<IncrementalBulkService.Handler> handlerSupplier) {
             this.request = request;
             this.handlerSupplier = handlerSupplier;
-            this.parser = new BulkRequestParser(true, request.getRestApiVersion()).incrementalParser(
+            AbstractBulkRequestParser requestParser;
+            if (BulkArrowRequestParser.isArrowRequest(request)) {
+                requestParser = new BulkArrowRequestParser(request);
+            } else {
+                requestParser = new BulkRequestParser(true, request.getRestApiVersion());
+            }
+            this.parser = requestParser.incrementalParser(
                 request.param("index"),
                 request.param("routing"),
                 FetchSourceContext.parseFromRestRequest(request),

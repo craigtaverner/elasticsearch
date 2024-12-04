@@ -8,8 +8,12 @@
  */
 
 module org.elasticsearch.arrow {
+    exports org.elasticsearch.arrow;
 
     requires transitive org.apache.arrow.vector;
     requires transitive org.apache.arrow.memory.core;
-    requires org.apache.arrow.format;
+    requires transitive org.apache.arrow.format;
+
+    requires org.elasticsearch.xcontent;
+    requires com.fasterxml.jackson.databind;
 }
