@@ -9,6 +9,8 @@
 
 package org.elasticsearch.action.bulk.arrow;
 
+import org.apache.arrow.memory.AllocationListener;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -27,6 +29,7 @@ import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.xcontent.XContent;
+import org.elasticsearch.xcontent.XContentParserConfiguration;
 import org.elasticsearch.xcontent.XContentType;
 
 import java.io.ByteArrayOutputStream;
@@ -48,7 +51,10 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
     private DocWriteRequest.OpType defaultOpType;
 
     private ArrowIncrementalParser arrowParser;
-    private VectorSchemaRoot schemaRoot = null;
+    private BufferAllocator allocator;
+    private VectorSchemaRoot schemaRoot;
+
+    private static final RootAllocator ROOT_ALLOCATOR = new RootAllocator();
 
     private Integer idField = null;
     private Integer actionField = null;
@@ -80,15 +86,24 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
             defaultRequireDataStream,
             defaultListExecutedPipelines,
             allowExplicitIndex,
-            true,
+            true, // deprecateOrErrorOnType
             xContentType,
-            null, // ContentType
+            null, // contentType
             indexRequestConsumer,
             updateRequestConsumer,
             deleteRequestConsumer
         );
 
         this.defaultOpType = defaultOpType;
+        AllocationListener al = new AllocationListener() {
+            @Override
+            public void onPreAllocation(long size) {
+                // Check circuit breaker
+            }
+        };
+
+        this.allocator = ROOT_ALLOCATOR.newChildAllocator("bulk-ingestion", al, 0, Integer.MAX_VALUE);
+
         this.arrowParser = new ArrowIncrementalParser(
             new RootAllocator(),
             new ArrowIncrementalParser.Listener() {
@@ -113,6 +128,15 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
     @Override
     public int parse(BytesReference data, boolean lastData) throws IOException {
         return arrowParser.parse(data, lastData);
+    }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        if (schemaRoot != null) {
+            schemaRoot.close();
+            schemaRoot = null;
+        }
     }
 
     private void startArrowStream(VectorSchemaRoot root) {
@@ -185,6 +209,8 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
 
 
     private void endArrowStream() {
+        close();
+        // Nothing
     }
 
     private DocWriteRequest<?> parseAction(@Nullable FieldVector actionVector, int position, String id) throws IOException {
@@ -220,7 +246,7 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
         }
 
         DocWriteRequest<?> request;
-        try (var parser = xContent.createParser(null, buffer.buffer(), 0, buffer.size())) {
+        try (var parser = xContent.createParser(XContentParserConfiguration.EMPTY, buffer.buffer(), 0, buffer.size())) {
             request = parseActionLine(parser);
         };
 

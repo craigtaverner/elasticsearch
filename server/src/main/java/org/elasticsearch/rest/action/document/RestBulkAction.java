@@ -17,7 +17,7 @@ import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestParser;
 import org.elasticsearch.action.bulk.BulkShardRequest;
 import org.elasticsearch.action.bulk.IncrementalBulkService;
-import org.elasticsearch.action.bulk.arrow.BulkArrowRequestParser;
+import org.elasticsearch.action.bulk.arrow.ArrowBulkRequestParser;
 import org.elasticsearch.action.support.ActiveShardCount;
 import org.elasticsearch.client.internal.node.NodeClient;
 import org.elasticsearch.cluster.metadata.DataStream;
@@ -81,6 +81,11 @@ public class RestBulkAction extends BaseRestHandler {
             new Route(POST, "/{index}/_bulk"),
             new Route(PUT, "/{index}/_bulk")
         );
+    }
+
+    @Override
+    public boolean mediaTypesValid(RestRequest request) {
+        return super.mediaTypesValid(request) || ArrowBulkRequestParser.isArrowRequest(request);
     }
 
     @Override
@@ -163,8 +168,8 @@ public class RestBulkAction extends BaseRestHandler {
             this.request = request;
             this.handlerSupplier = handlerSupplier;
             AbstractBulkRequestParser requestParser;
-            if (BulkArrowRequestParser.isArrowRequest(request)) {
-                requestParser = new BulkArrowRequestParser(request);
+            if (ArrowBulkRequestParser.isArrowRequest(request)) {
+                requestParser = new ArrowBulkRequestParser(request);
             } else {
                 requestParser = new BulkRequestParser(true, request.getRestApiVersion());
             }
@@ -257,7 +262,7 @@ public class RestBulkAction extends BaseRestHandler {
 
         private void shortCircuit() {
             shortCircuited = true;
-            Releasables.close(handler);
+            Releasables.close(parser, handler);
             Releasables.close(unParsedChunks);
             unParsedChunks.clear();
         }

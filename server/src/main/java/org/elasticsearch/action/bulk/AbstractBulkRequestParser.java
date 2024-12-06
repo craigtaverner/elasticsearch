@@ -14,6 +14,7 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.core.Nullable;
+import org.elasticsearch.core.Releasable;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.xcontent.XContentType;
 
@@ -27,7 +28,7 @@ public abstract class AbstractBulkRequestParser {
      * A parser for streamed data. Every call to {@link #parse(BytesReference, boolean)} should
      * consume as much data as possible and return the number of bytes that were consumed.
      */
-    public interface IncrementalParser {
+    public interface IncrementalParser extends Releasable {
         /**
          * @param data the data
          * @param lastData is there more data that can be read?
@@ -36,6 +37,11 @@ public abstract class AbstractBulkRequestParser {
         int parse(BytesReference data, boolean lastData) throws IOException;
     }
 
+    /**
+     * Parse the provided {@code data} assuming the provided default values. Index requests
+     * will be passed to the {@code indexRequestConsumer}, update requests to the
+     * {@code updateRequestConsumer} and delete requests to the {@code deleteRequestConsumer}.
+     */
     public abstract void parse(
         BytesReference data,
         @Nullable String defaultIndex,

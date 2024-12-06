@@ -54,6 +54,7 @@ module org.elasticsearch.server {
     requires org.elasticsearch.arrow;
     requires org.elasticsearch.xcontent;
     requires org.elasticsearch.base;
+    requires org.elasticsearch.logging;
 
     exports org.elasticsearch;
     exports org.elasticsearch.action;

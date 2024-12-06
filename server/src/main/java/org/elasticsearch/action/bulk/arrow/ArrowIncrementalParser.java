@@ -23,7 +23,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-import java.util.function.Consumer;
 
 /**
  * An incremental reader for Arrow dataframes.
@@ -32,12 +31,14 @@ public class ArrowIncrementalParser implements Closeable {
 
     public interface Listener {
         /**
-         * Start of the Arrow stream.
+         * Start of the Arrow stream. It's the responsibility of the listener to close this vector root,
+         * as it may need to live longer than the parser.
          */
         void startStream(VectorSchemaRoot schemaRoot) throws IOException;
 
         /**
-         * A new {@code RecordBatch} was read.
+         * A new {@code RecordBatch} was read. Its vectors are available in the {@code VectorSchemaRoot} that
+         * was passed to {@link #startStream(VectorSchemaRoot)}.
          */
         void nextBatch() throws IOException;
 
@@ -72,29 +73,21 @@ public class ArrowIncrementalParser implements Closeable {
 
     @Override
     public void close() throws IOException {
-        // Will also close channel.
-        this.reader.close();
-        this.channel = null;
-        this.reader = null;
+        if (this.reader != null) {
+            this.reader.close(); // Will also close channel.
+            this.channel = null;
+            this.reader = null;
+        }
     }
 
     public int parse(BytesReference data, boolean lastData) throws IOException {
-        System.out.println("Parse");
         int total = 0;
         int consumed;
-        //while ((consumed = doParse(data, lastData)) > 0) {
-        while (true) {
-            System.out.println("Parse: data.lentgh=" + data.length() + ", expected=" + expectedDataLength);
-            consumed = doParse(data, lastData);
-            if (consumed == 0) {
-                break;
-            }
-            System.out.println("DoParse consumed=" + consumed);
+        while ((consumed = doParse(data, lastData)) > 0) {
             total += consumed;
             data = data.slice(consumed, data.length() - consumed);
             // Start a new message
             expectedDataLength = PREFIX_LEN;
-            System.out.println();
         }
         return total;
     }
@@ -128,7 +121,6 @@ public class ArrowIncrementalParser implements Closeable {
             // padded to 8 bytes
             metadataSize += (8 - trailing);
         }
-        System.out.println("Metadata size=" + metadataSize);
 
         expectedDataLength = PREFIX_LEN + metadataSize;
         if (data.length() < expectedDataLength) {
@@ -138,13 +130,10 @@ public class ArrowIncrementalParser implements Closeable {
         // We may expect some data after the metadata, read metadata to find body length.
         // The Arrow library doesn't make it easy to read metadata and then the body, so we read
         // the metadata once to get the body length (overhead is low since flatbuffers is zero-copy)
-        System.out.println(">>> Reading metadata");
         ReadChannel ch = new ReadChannel(new BytesReferenceChannel(data));
         MessageMetadataResult metadata = MessageSerializer.readMessage(ch);
-        System.out.println("Message length=" + metadata.getMessageLength() + " bodyLength=" + metadata.getMessageBodyLength());
         // FIXME: enforce a hard limit on body length?
         expectedDataLength += metadata.getMessageBodyLength();
-        System.out.println("<<< Reading metadata");
         if (data.length() < expectedDataLength) {
             return 0;
         }
@@ -163,6 +152,7 @@ public class ArrowIncrementalParser implements Closeable {
             } else {
                 expectedDataLength = 0;
                 listener.endStream();
+                close();
             }
         }
 
@@ -189,7 +179,6 @@ public class ArrowIncrementalParser implements Closeable {
         }
 
         void setData(BytesReference data, boolean lastData) throws IOException {
-            System.out.println("Channel data length=" + data.length());
             this.lastData = lastData;
             this.iterator = data.iterator();
             nextBytesRef();
@@ -212,7 +201,6 @@ public class ArrowIncrementalParser implements Closeable {
             int remaining;
             while ((remaining = dst.remaining()) > 0 && this.current != null) {
                 int len = Math.min(remaining, this.lastOffset - this.currentOffset);
-                System.out.println("Channel: want " + remaining + ", writing " + len + " (current offset=" + this.currentOffset + ")");
                 dst.put(this.current.bytes, this.currentOffset, len);
                 this.currentOffset += len;
                 written += len;

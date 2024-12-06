@@ -24,19 +24,7 @@ import java.io.IOException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class BulkArrowRequestParser extends AbstractBulkRequestParser {
-
-    private final DocWriteRequest.OpType defaultOpType;
-
-    public BulkArrowRequestParser(RestRequest request) {
-        // Default operation read from the "op_type" query parameter
-        // We default to create requests as it's safe and versatile:
-        // - accepts requests with and without an id,
-        // - if an id is present, ensures we don't accidentally overwrite an existing document,
-        // - datastreams only accept create operations.
-        String str = request.param("op_type", DocWriteRequest.OpType.CREATE.getLowercase());
-        this.defaultOpType = DocWriteRequest.OpType.fromString(str);
-    }
+public class ArrowBulkRequestParser extends AbstractBulkRequestParser {
 
     public static boolean isArrowRequest(RestRequest request) {
         if (request.getXContentType() != null) {
@@ -47,6 +35,18 @@ public class BulkArrowRequestParser extends AbstractBulkRequestParser {
             return false;
         }
         return contentType.contains("application/vnd.apache.arrow.stream");
+    }
+
+    private final DocWriteRequest.OpType defaultOpType;
+
+    public ArrowBulkRequestParser(RestRequest request) {
+        // Default operation read from the "op_type" query parameter
+        // We default to create requests as it's safe and versatile:
+        // - accepts requests with and without an id,
+        // - if an id is present, ensures we don't accidentally overwrite an existing document,
+        // - datastreams only accept create operations.
+        String str = request.param("op_type", DocWriteRequest.OpType.CREATE.getLowercase());
+        this.defaultOpType = DocWriteRequest.OpType.fromString(str);
     }
 
     @Override
@@ -65,7 +65,7 @@ public class BulkArrowRequestParser extends AbstractBulkRequestParser {
         Consumer<UpdateRequest> updateRequestConsumer,
         Consumer<DeleteRequest> deleteRequestConsumer
     ) throws IOException {
-        IncrementalParser parser = incrementalParser(
+        try(IncrementalParser parser = incrementalParser(
             defaultIndex,
             defaultRouting,
             defaultFetchSourceContext,
@@ -78,9 +78,9 @@ public class BulkArrowRequestParser extends AbstractBulkRequestParser {
             indexRequestConsumer,
             updateRequestConsumer,
             deleteRequestConsumer
-        );
-
-        parser.parse(data, true);
+        )) {
+            parser.parse(data, true);
+        }
     }
 
     @Override

@@ -30,6 +30,7 @@ import org.elasticsearch.xcontent.XContentParser;
 import org.elasticsearch.xcontent.XContentParserConfiguration;
 import org.elasticsearch.xcontent.XContentType;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -255,7 +256,7 @@ public final class BulkRequestParser extends AbstractBulkRequestParser {
             this.deprecateOrErrorOnType = deprecateOrErrorOnType;
             this.xContentType = xContentType;
             this.config = config;
-            this.marker = xContentType.xContent().bulkSeparator();
+            this.marker = xContentType == null ? 0 : xContentType.xContent().bulkSeparator(); // null for Arrow
             this.indexRequestConsumer = indexRequestConsumer;
             this.updateRequestConsumer = updateRequestConsumer;
             this.deleteRequestConsumer = deleteRequestConsumer;
@@ -273,6 +274,11 @@ public final class BulkRequestParser extends AbstractBulkRequestParser {
                 failure = e;
                 throw e;
             }
+        }
+
+        @Override
+        public void close() {
+            // Nothing
         }
 
         private int tryParse(BytesReference data, boolean lastData) throws IOException {
