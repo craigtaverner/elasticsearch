@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.FloatingPointVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.ValueVector;
@@ -31,6 +32,19 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 
+/**
+ * Utility methods to serialize Arrow dataframes to XContent events.
+ * <p>
+ * Limitations:
+ * <ul>
+ * <li>time and timestamps are converted to milliseconds (no support for nanoseconds)
+ * </li>
+ * <li>some types aren't implemented
+ * </li>
+ * </ul>
+ *
+ * @see <a href="https://arrow.apache.org/docs/format/Columnar.html#data-types">Arrow data types</a>
+ */
 public class ArrowToXContent {
 
     private static final EnumSet<Types.MinorType> STRING_TYPES = EnumSet.of(
@@ -51,6 +65,13 @@ public class ArrowToXContent {
         }
 
         switch (vector.getMinorType()) {
+
+            //----- Primitive values
+
+            case BIT -> {
+                generator.writeBoolean(((BitVector)vector).get(position) != 0);
+            }
+
             case TINYINT, SMALLINT, INT, BIGINT, UINT1, UINT2, UINT4, UINT8 -> {
                 generator.writeNumber(((BaseIntVector)vector).getValueAsLong(position));
             }
@@ -59,13 +80,10 @@ public class ArrowToXContent {
                 generator.writeNumber(((FloatingPointVector)vector).getValueAsDouble(position));
             }
 
-            case BIT -> {
-                generator.writeBoolean(((BitVector)vector).get(position) != 0);
-            }
+            //----- strings and bytes
 
             case VARCHAR, LARGEVARCHAR, VIEWVARCHAR -> {
                 var bytesVector = (VariableWidthFieldVector)vector;
-                // TODO: maybe we can avoid a copy using bytesVector.getDatapointer()?
                 generator.writeString(new String(bytesVector.get(position), StandardCharsets.UTF_8));
             }
 
@@ -73,6 +91,13 @@ public class ArrowToXContent {
                 var bytesVector = (VariableWidthFieldVector)vector;
                 generator.writeBinary(bytesVector.get(position));
             }
+
+            case FIXEDSIZEBINARY -> {
+                var bytesVector = (FixedSizeBinaryVector)vector;
+                generator.writeBinary(bytesVector.get(position));
+            }
+
+            //----- lists
 
             case LIST, FIXED_SIZE_LIST, LISTVIEW -> {
                 var listVector = (BaseListVector)vector;
@@ -87,22 +112,35 @@ public class ArrowToXContent {
                 generator.writeEndArray();
             }
 
-            case TIMESTAMPMILLI -> {
+            //----- Time & Timestamp (time + timezone)
+
+            // Timestamps are the elapsed time since the Epoch, with an optional timezone that
+            // can be used for timezome-aware operations or display. Since ES date fields
+            // don't support timezones, we ignore it.
+            // See https://github.com/apache/arrow/blob/main/format/Schema.fbs
+            // and https://www.elastic.co/guide/en/elasticsearch/reference/current/date.html
+
+            case TIMESEC, TIMESTAMPSEC -> {
+                var tsVector = (TimeStampVector)vector;
+                generator.writeNumber(tsVector.get(position)*1000);
+            }
+
+            case TIMEMILLI, TIMESTAMPMILLI -> {
                 var tsVector = (TimeStampVector)vector;
                 generator.writeNumber(tsVector.get(position));
             }
 
-            case TIMEMICRO -> {
+            case TIMEMICRO, TIMESTAMPMICRO -> {
                 var tsVector = (TimeStampVector)vector;
-                // FIXME: format as string with enough decimal positions
                 generator.writeNumber(tsVector.get(position)/1000);
             }
 
-            case TIMENANO -> {
+            case TIMENANO, TIMESTAMPNANO -> {
                 var tsVector = (TimeStampVector)vector;
-                // FIXME: format as string with enough decimal positions
                 generator.writeNumber(tsVector.get(position)/1_000_000);
             }
+
+            //----- Composite types
 
             case MAP -> {
                 // A map is a container vector that is composed of a list of struct values with "key" and "value" fields. The MapVector

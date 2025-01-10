@@ -7,8 +7,12 @@
  * License v3.0 only", or the "Server Side Public License, v 1".
  */
 
-//apply plugin: 'elasticsearch.build'
-//apply plugin: 'elasticsearch.publish'
+// Notes:
+// - additional JVM arguments are added to distribution/src/config/jvm.options and ElasticsearchTestBasePlugin
+// - additional permissions are added to server/src/main/resources/org/elasticsearch/bootstrap/security.policy
+
+apply plugin: 'elasticsearch.build'
+apply plugin: 'elasticsearch.publish'
 
 dependencies {
   implementation(project(":libs:x-content"))
@@ -22,7 +26,6 @@ dependencies {
   //	at org.elasticsearch.xcontent@9.0.0-SNAPSHOT/org.elasticsearch.xcontent.XContentType.<clinit>(XContentType.java:28)
   //	at org.elasticsearch.server@9.0.0-SNAPSHOT/org.elasticsearch.common.settings.Setting.arrayToParsableString(Setting.java:1883)
   implementation(project(":libs:x-content:impl"))
-
 
   // arrow-vector
   api("org.apache.arrow:arrow-vector:18.0.0")
@@ -48,9 +51,35 @@ dependencies {
 
   // arrow-memory-unsafe
   implementation('org.apache.arrow:arrow-memory-unsafe:18.0.0')
-  // Not needed at runtime, only in tests
   // also depends on value-annotations (provided dependency)
 
-  //runtimeOnly("org.slf4j:slf4j-nop:${versions.slf4j}")
+  testImplementation(project(":test:framework")) {
+    exclude group: 'org.elasticsearch', module: 'arrow'
+  }
 }
 
+tasks.named("dependencyLicenses").configure {
+  mapping from: /jackson-.*/, to: 'jackson'
+  mapping from: /arrow-.*/, to: 'arrow'
+  mapping from: /slf4j-.*/, to: 'slf4j'
+}
+
+tasks.named("thirdPartyAudit").configure {
+  ignoreViolations(
+    'org.apache.arrow.memory.util.hash.SimpleHasher',
+    'org.apache.arrow.memory.util.hash.MurmurHasher',
+    'org.apache.arrow.memory.util.MemoryUtil',
+    'org.apache.arrow.memory.util.MemoryUtil$1',
+    'org.apache.arrow.vector.DecimalVector',
+    'org.apache.arrow.vector.BaseFixedWidthVector',
+    'org.apache.arrow.vector.util.DecimalUtility',
+    'org.apache.arrow.vector.Decimal256Vector',
+    'org.apache.arrow.vector.util.VectorAppender',
+    'org.apache.arrow.memory.ArrowBuf',
+    'org.apache.arrow.vector.BitVectorHelper',
+    'org.apache.arrow.memory.util.ByteFunctionHelpers',
+  )
+  ignoreMissingClasses(
+    'org.apache.commons.codec.binary.Hex'
+  )
+}

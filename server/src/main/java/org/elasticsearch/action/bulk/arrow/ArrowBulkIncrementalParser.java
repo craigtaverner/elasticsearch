@@ -23,13 +23,14 @@ import org.elasticsearch.action.bulk.BulkRequestParser;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.arrow.Arrow;
 import org.elasticsearch.arrow.ArrowToXContent;
+import org.elasticsearch.arrow.XContentBuffer;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.core.Nullable;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.xcontent.XContent;
-import org.elasticsearch.xcontent.XContentParserConfiguration;
 import org.elasticsearch.xcontent.XContentType;
 
 import java.io.ByteArrayOutputStream;
@@ -54,13 +55,9 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
     private BufferAllocator allocator;
     private VectorSchemaRoot schemaRoot;
 
-    private static final RootAllocator ROOT_ALLOCATOR = new RootAllocator();
-
     private Integer idField = null;
     private Integer actionField = null;
     private BitSet valueFields;
-
-    private OpenByteArrayOutputStream buffer = new OpenByteArrayOutputStream();
 
     ArrowBulkIncrementalParser(
         DocWriteRequest.OpType defaultOpType,
@@ -95,14 +92,9 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
         );
 
         this.defaultOpType = defaultOpType;
-        AllocationListener al = new AllocationListener() {
-            @Override
-            public void onPreAllocation(long size) {
-                // Check circuit breaker
-            }
-        };
 
-        this.allocator = ROOT_ALLOCATOR.newChildAllocator("bulk-ingestion", al, 0, Integer.MAX_VALUE);
+        // FIXME: limit size of child allocator. Add an AllocationListener that calls a CircuitBreaker?
+        this.allocator = Arrow.rootAllocator().newChildAllocator("bulk-ingestion", 0, Integer.MAX_VALUE);
 
         this.arrowParser = new ArrowIncrementalParser(
             new RootAllocator(),
@@ -131,7 +123,7 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         super.close();
         if (schemaRoot != null) {
             schemaRoot.close();
@@ -192,7 +184,7 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
     }
 
     protected BytesReference generateSource(int position) throws IOException {
-        var output = new OpenByteArrayOutputStream();
+        var output = new BytesReferenceOutputStream();
         try(var generator = SOURCE_XCONTENT.createGenerator(output)) {
             generator.writeStartObject();
             int rowCount = schemaRoot.getRowCount();
@@ -204,21 +196,18 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
             generator.writeEndObject();
         }
 
-        return output.asBytesArray();
+        return output.asBytesReference();
     }
-
 
     private void endArrowStream() {
         close();
-        // Nothing
     }
 
     private DocWriteRequest<?> parseAction(@Nullable FieldVector actionVector, int position, String id) throws IOException {
 
-        var xContent = XContentType.CBOR.xContent();
+        DocWriteRequest<?> request;
 
-        buffer.clear();
-        try (var generator = xContent.createGenerator(buffer)) {
+        try (var generator = new XContentBuffer()) {
 
             if (actionVector != null) {
                 String opType = getNamedString(actionVector, "op_type", position);
@@ -226,8 +215,7 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
                     opType = defaultOpType.getLowercase();
                 }
 
-                // Create { opType: { properties } }. op_type may be there as well, but that
-                // won't prevent parsing.
+                // Create { opType: { properties } }. The "op_type" property may also exist, but the action parser accepts it.
                 generator.writeStartObject();
                 generator.writeFieldName(opType);
                 generator.writeStartObject();
@@ -236,19 +224,16 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
                 generator.writeEndObject();
 
             } else {
-                // Create { defaultOpType: {} }
+                // Create a `{ defaultOpType: {} }` action
                 generator.writeStartObject();
                 generator.writeFieldName(defaultOpType.getLowercase());
                 generator.writeStartObject();
                 generator.writeEndObject();
                 generator.writeEndObject();
             }
-        }
 
-        DocWriteRequest<?> request;
-        try (var parser = xContent.createParser(XContentParserConfiguration.EMPTY, buffer.buffer(), 0, buffer.size())) {
-            request = parseActionLine(parser);
-        };
+            request = parseActionLine(generator.asParser());
+        }
 
         if (id != null) {
             if (request.id() != null) {
@@ -277,7 +262,6 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
         return null;
     }
 
-
     private String getString(ValueVector vector, int position) {
         if (vector.isNull(position)) {
             return null;
@@ -300,17 +284,11 @@ class ArrowBulkIncrementalParser extends BulkRequestParser.XContentIncrementalPa
         };
     }
 
-    // Provides access to the bytes without requiring a copy
-    private static class OpenByteArrayOutputStream extends ByteArrayOutputStream {
-        byte[] buffer() {
-            return this.buf;
-        }
-
-        void clear() {
-            this.count = 0;
-        }
-
-        BytesArray asBytesArray() {
+    /**
+     * A byte array stream that can be converted to {@code BytesReference} with zero copy.
+     */
+    private static class BytesReferenceOutputStream extends ByteArrayOutputStream {
+        BytesArray asBytesReference() {
             return new BytesArray(buf, 0, count);
         }
     }

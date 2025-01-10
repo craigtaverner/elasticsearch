@@ -7,14 +7,19 @@
  * License v3.0 only", or the "Server Side Public License, v 1".
  */
 
-module org.elasticsearch.arrow {
-    exports org.elasticsearch.arrow;
+package org.elasticsearch.arrow;
 
-    requires transitive org.apache.arrow.vector;
-    requires transitive org.apache.arrow.memory.core;
-    requires transitive org.apache.arrow.format;
+import org.apache.arrow.memory.RootAllocator;
 
-    requires org.elasticsearch.xcontent;
-    requires com.fasterxml.jackson.databind;
-    requires org.elasticsearch.base;
+public class Arrow {
+
+    private static final RootAllocator ROOT_ALLOCATOR = new RootAllocator();
+
+    /**
+     * Returns the global root allocator. Should be used to create child allocators to have
+     * fine-grained memory allocation tracking and to enforce local limits.
+     */
+    public static RootAllocator rootAllocator() {
+        return new RootAllocator();
+    }
 }

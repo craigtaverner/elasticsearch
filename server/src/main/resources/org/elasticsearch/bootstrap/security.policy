@@ -79,6 +79,7 @@ grant codebase "${codebase.jackson-databind}" {
 };
 
 // Arrow uses Unsafe to access memory and accesses a private field in java.nio.Buffer
+// See also additional global permissions below
 grant codebase "${codebase.arrow-memory-core}" {
   permission java.lang.RuntimePermission "accessDeclaredMembers";
   permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
