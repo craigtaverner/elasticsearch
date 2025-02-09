@@ -1087,6 +1087,11 @@ public class EsqlCapabilities {
         SUBQUERY_IN_FROM_COMMAND(Build.current().isSnapshot()),
 
         /**
+         * Views.
+         */
+        VIEW_V1(Build.current().isSnapshot()),
+
+        /**
          * Support for the {@code leading_zeros} named parameter.
          */
         TO_IP_LEADING_ZEROS,
