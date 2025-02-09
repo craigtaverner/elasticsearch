@@ -83,6 +83,7 @@ import org.elasticsearch.xpack.esql.planner.premapper.PreMapper;
 import org.elasticsearch.xpack.esql.plugin.EsqlQueryClusterSettings;
 import org.elasticsearch.xpack.esql.plugin.TransportActionServices;
 import org.elasticsearch.xpack.esql.telemetry.PlanTelemetry;
+import org.elasticsearch.xpack.esql.view.ViewService;
 
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -121,6 +122,7 @@ public class EsqlSession {
     private final EsqlQueryClusterSettings clusterSettings;
     private final IndexResolver indexResolver;
     private final EnrichPolicyResolver enrichPolicyResolver;
+    private final ViewService viewService;
 
     private final PreAnalyzer preAnalyzer;
     private final Verifier verifier;
@@ -145,6 +147,7 @@ public class EsqlSession {
         EsqlQueryClusterSettings clusterSettings,
         IndexResolver indexResolver,
         EnrichPolicyResolver enrichPolicyResolver,
+        ViewService viewService,
         PreAnalyzer preAnalyzer,
         EsqlFunctionRegistry functionRegistry,
         Mapper mapper,
@@ -157,6 +160,7 @@ public class EsqlSession {
         this.clusterSettings = clusterSettings;
         this.indexResolver = indexResolver;
         this.enrichPolicyResolver = enrichPolicyResolver;
+        this.viewService = viewService;
         this.preAnalyzer = preAnalyzer;
         this.verifier = verifier;
         this.functionRegistry = functionRegistry;
@@ -182,7 +186,6 @@ public class EsqlSession {
         assert ThreadPool.assertCurrentThreadPool(ThreadPool.Names.SEARCH);
         assert executionInfo != null : "Null EsqlExecutionInfo";
         LOGGER.debug("ESQL query:\n{}", request.query());
-        EsqlStatement statement = parse(request.query(), request.params());
         Configuration configuration = new Configuration(
             ZoneOffset.UTC, // TODO: Use the time_zone setting instead?
             request.locale() != null ? request.locale() : Locale.US,
@@ -205,7 +208,7 @@ public class EsqlSession {
         var logicalPlanOptimizer = new LogicalPlanOptimizer(new LogicalOptimizerContext(configuration, foldContext));
         var physicalPlanOptimizer = new PhysicalPlanOptimizer(new PhysicalOptimizerContext(configuration));
 
-        LogicalPlan plan = statement.plan();
+        LogicalPlan plan = viewService.replaceViews(parse(request.query(), request.params()).plan(), planTelemetry, configuration);
         if (plan instanceof Explain explain) {
             explainMode = true;
             plan = explain.query();
