@@ -9,43 +9,33 @@
 
 package org.elasticsearch.geometry;
 
-import org.elasticsearch.geometry.utils.WellKnownText;
-
 /**
  * Represents a Point on the earth's surface in decimal degrees and optional altitude in meters.
  */
-public class Point extends Coordinate implements Geometry {
-    public static final Point EMPTY = new Point();
-    private final boolean empty;
+public class Coordinate {
+    protected final double y;
+    protected final double x;
+    protected final double z;
 
-    private Point() {
-        super(0, 0, Double.NaN);
-        empty = true;
-    }
-
-    public Point(double x, double y) {
+    public Coordinate(double x, double y) {
         this(x, y, Double.NaN);
     }
 
-    public Point(double x, double y, double z) {
-        super(x, y, z);
-        this.empty = false;
+    public Coordinate(double x, double y, double z) {
+        this.y = y;
+        this.x = x;
+        this.z = z;
     }
 
-    @Override
-    public ShapeType type() {
-        return ShapeType.POINT;
-    }
-
-    public double getLat() {
+    public double getY() {
         return y;
     }
 
-    public double getLon() {
+    public double getX() {
         return x;
     }
 
-    public double getAlt() {
+    public double getZ() {
         return z;
     }
 
@@ -54,8 +44,7 @@ public class Point extends Coordinate implements Geometry {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        Point point = (Point) o;
-        if (point.empty != empty) return false;
+        Coordinate point = (Coordinate) o;
         if (Double.compare(point.y, y) != 0) return false;
         if (Double.compare(point.x, x) != 0) return false;
         return Double.compare(point.z, z) == 0;
@@ -75,23 +64,7 @@ public class Point extends Coordinate implements Geometry {
     }
 
     @Override
-    public <T, E extends Exception> T visit(GeometryVisitor<T, E> visitor) throws E {
-        return visitor.visit(this);
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return empty;
-    }
-
-    @Override
-    public boolean hasZ() {
-        return Double.isNaN(z) == false;
-    }
-
-    @Override
     public String toString() {
-        return WellKnownText.toWKT(this);
+        return Double.isNaN(z) == false ? "Coordinate(" + x + ", " + y + ", " + z + ")" : "Coordinate(" + x + ", " + y + ")";
     }
-
 }
