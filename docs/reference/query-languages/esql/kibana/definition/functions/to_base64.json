@@ -30,7 +30,7 @@
     }
   ],
   "examples" : [
-    "ROW a = \"elastic\"\n| EVAL e = TO_BASE64(a)"
+    "row a = \"elastic\"\n| eval e = to_base64(a)"
   ],
   "preview" : false,
   "snapshot_only" : false

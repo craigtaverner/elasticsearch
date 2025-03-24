@@ -3,8 +3,8 @@
 **Example**
 
 ```esql
-ROW a = "elastic"
-| EVAL e = TO_BASE64(a)
+row a = "elastic"
+| eval e = to_base64(a)
 ```
 
 | a:keyword | e:keyword |

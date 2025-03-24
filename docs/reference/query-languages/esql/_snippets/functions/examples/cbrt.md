@@ -4,7 +4,7 @@
 
 ```esql
 ROW d = 1000.0
-| EVAL c = CBRT(d)
+| EVAL c = cbrt(d)
 ```
 
 | d: double | c:double |

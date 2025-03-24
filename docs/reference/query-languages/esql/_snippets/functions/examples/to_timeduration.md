@@ -3,8 +3,7 @@
 **Example**
 
 ```esql
-ROW x = "2024-01-01"::datetime
-| EVAL y = x + "3 hours"::time_duration, z = x - TO_TIMEDURATION("3 hours");
+row x = "2024-01-01"::datetime | eval y = x + "3 hours"::time_duration, z = x - to_timeduration("3 hours");
 ```
 
 | x:datetime | y:datetime | z:datetime |

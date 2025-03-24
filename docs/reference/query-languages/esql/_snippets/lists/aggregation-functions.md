@@ -11,5 +11,5 @@
 * [`STD_DEV`](../../esql-functions-operators.md#esql-std_dev)
 * [`SUM`](../../esql-functions-operators.md#esql-sum)
 * [`TOP`](../../esql-functions-operators.md#esql-top)
-* [preview] [`VALUES`](../../esql-functions-operators.md#esql-values)
+* [`VALUES`](../../esql-functions-operators.md#esql-values)
 * [`WEIGHTED_AVG`](../../esql-functions-operators.md#esql-weighted_avg)
