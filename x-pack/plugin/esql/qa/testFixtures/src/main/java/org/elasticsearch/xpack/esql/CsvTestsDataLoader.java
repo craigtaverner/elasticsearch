@@ -447,6 +447,8 @@ public class CsvTestsDataLoader {
             for (var view : VIEW_CONFIGS) {
                 loadView(client, view.viewName, view.viewFileName, logger);
             }
+            // Just for debugging output TODO: remove
+            clusterHasViewSupport(client, logger);
         } else {
             logger.info("Skipping loading views as the cluster does not support views");
         }
@@ -459,6 +461,8 @@ public class CsvTestsDataLoader {
             for (var view : VIEW_CONFIGS) {
                 deleteView(client, view.viewName, logger);
             }
+            // Just for debugging output TODO: remove
+            clusterHasViewSupport(client, logger);
         } else {
             logger.info("Skipping deleting views as the cluster does not support views");
         }
@@ -645,6 +649,8 @@ public class CsvTestsDataLoader {
         try {
             Response response = client.performRequest(request);
             logger.info("View listing response: {}", response.getStatusLine());
+            logger.info("View response body info: {}", response.getEntity());
+            logger.info("View response body: {}", new String(response.getEntity().getContent().readAllBytes()));
         } catch (ResponseException e) {
             logger.info("View listing error: {}", e.getMessage());
             int code = e.getResponse().getStatusLine().getStatusCode();
