@@ -78,8 +78,9 @@ public class CsvTestsDataLoader {
     private static final TestDataset LANGUAGES = new TestDataset("languages");
     private static final TestDataset LANGUAGES_LOOKUP = LANGUAGES.withIndex("languages_lookup").withSetting("lookup-settings.json");
     private static final TestDataset LANGUAGES_NON_UNIQUE_KEY = new TestDataset("languages_non_unique_key");
-    private static final TestDataset LANGUAGES_LOOKUP_NON_UNIQUE_KEY = LANGUAGES_NON_UNIQUE_KEY.withIndex("languages_lookup_non_unique_key")
-        .withSetting("lookup-settings.json");
+    private static final TestDataset LANGUAGES_LOOKUP_NON_UNIQUE_KEY = LANGUAGES_LOOKUP.withIndex("languages_lookup_non_unique_key")
+        .withData("languages_non_unique_key.csv")
+        .withDynamicTypeMapping(Map.of("country", "text"));
     private static final TestDataset LANGUAGES_NESTED_FIELDS = new TestDataset(
         "languages_nested_fields",
         "mapping-languages_nested_fields.json",
@@ -616,14 +617,18 @@ public class CsvTestsDataLoader {
     }
 
     private static void loadView(RestClient client, String viewName, String viewFilename, Logger logger) throws IOException {
-        logger.info("Loading view [{}] from file [{}]", viewName, viewFilename);
-        URL viewFile = getResource("/" + viewFilename);
-        String viewQuery = readTextFile(viewFile);
+        String viewQuery = loadViewQuery(viewName, viewFilename, logger);
         Request request = new Request("PUT", "/_query/view/" + viewName);
         request.setJsonEntity("{\"query\":\"" + viewQuery.replace("\"", "\\\"").replace("\n", " ") + "\"}");
         Response response = client.performRequest(request);
         logger.info("View creation response: {}", response.getStatusLine());
         getView(client, viewName, logger);
+    }
+
+    static String loadViewQuery(String viewName, String viewFilename, Logger logger) throws IOException {
+        logger.info("Loading view [{}] from file [{}]", viewName, viewFilename);
+        URL viewFile = getResource("/" + viewFilename);
+        return readTextFile(viewFile);
     }
 
     private static boolean getView(RestClient client, String viewName, Logger logger) throws IOException {
@@ -952,15 +957,16 @@ public class CsvTestsDataLoader {
         String dataFileName,
         String settingFileName,
         boolean allowSubFields,
-        @Nullable Map<String, String> typeMapping,
+        @Nullable Map<String, String> typeMapping, // Override mappings read from mappings file
+        @Nullable Map<String, String> dynamicTypeMapping, // Define mappings not in the mapping files, but available from field-caps
         boolean requiresInferenceEndpoint
     ) {
         public TestDataset(String indexName, String mappingFileName, String dataFileName) {
-            this(indexName, mappingFileName, dataFileName, null, true, null, false);
+            this(indexName, mappingFileName, dataFileName, null, true, null, null, false);
         }
 
         public TestDataset(String indexName) {
-            this(indexName, "mapping-" + indexName + ".json", indexName + ".csv", null, true, null, false);
+            this(indexName, "mapping-" + indexName + ".json", indexName + ".csv", null, true, null, null, false);
         }
 
         public TestDataset withIndex(String indexName) {
@@ -971,6 +977,7 @@ public class CsvTestsDataLoader {
                 settingFileName,
                 allowSubFields,
                 typeMapping,
+                dynamicTypeMapping,
                 requiresInferenceEndpoint
             );
         }
@@ -983,6 +990,7 @@ public class CsvTestsDataLoader {
                 settingFileName,
                 allowSubFields,
                 typeMapping,
+                dynamicTypeMapping,
                 requiresInferenceEndpoint
             );
         }
@@ -995,6 +1003,7 @@ public class CsvTestsDataLoader {
                 settingFileName,
                 allowSubFields,
                 typeMapping,
+                dynamicTypeMapping,
                 requiresInferenceEndpoint
             );
         }
@@ -1007,6 +1016,7 @@ public class CsvTestsDataLoader {
                 settingFileName,
                 allowSubFields,
                 typeMapping,
+                dynamicTypeMapping,
                 requiresInferenceEndpoint
             );
         }
@@ -1019,6 +1029,7 @@ public class CsvTestsDataLoader {
                 settingFileName,
                 false,
                 typeMapping,
+                dynamicTypeMapping,
                 requiresInferenceEndpoint
             );
         }
@@ -1031,12 +1042,35 @@ public class CsvTestsDataLoader {
                 settingFileName,
                 allowSubFields,
                 typeMapping,
+                dynamicTypeMapping,
+                requiresInferenceEndpoint
+            );
+        }
+
+        public TestDataset withDynamicTypeMapping(Map<String, String> dynamicTypeMapping) {
+            return new TestDataset(
+                indexName,
+                mappingFileName,
+                dataFileName,
+                settingFileName,
+                allowSubFields,
+                typeMapping,
+                dynamicTypeMapping,
                 requiresInferenceEndpoint
             );
         }
 
         public TestDataset withInferenceEndpoint(boolean needsInference) {
-            return new TestDataset(indexName, mappingFileName, dataFileName, settingFileName, allowSubFields, typeMapping, needsInference);
+            return new TestDataset(
+                indexName,
+                mappingFileName,
+                dataFileName,
+                settingFileName,
+                allowSubFields,
+                typeMapping,
+                dynamicTypeMapping,
+                needsInference
+            );
         }
 
         private Settings readSettingsFile() throws IOException {
