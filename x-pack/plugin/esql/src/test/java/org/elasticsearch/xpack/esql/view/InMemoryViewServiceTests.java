@@ -89,11 +89,61 @@ public class InMemoryViewServiceTests extends AbstractStatementParserTests {
         }
     }
 
-    private void addView(String name, String query) throws Exception {
+    public void testViewCountExceeded() throws Exception {
+        for (int i = 0; i < ViewService.ViewServiceConfig.DEFAULT.maxViews(); i++) {
+            addView("view" + i, "from emp");
+        }
+
+        // FROM view11 should fail
+        Exception e = expectThrows(IllegalArgumentException.class, () -> addView("viewX", "from emp"));
+        assertThat(e.getMessage(), startsWith("cannot add view, the maximum number of views is reached: 100"));
+    }
+
+    public void testModifiedViewCount() {
+        var config = new ViewService.ViewServiceConfig(1, 10_000, 10);
+        InMemoryViewService customViewService = new InMemoryViewService(functionRegistry, config);
+        try {
+            addView("view1", "from emp", customViewService);
+
+            // View2 should fail
+            Exception e = expectThrows(IllegalArgumentException.class, () -> addView("view2", "from emp", customViewService));
+            assertThat(e.getMessage(), startsWith("cannot add view, the maximum number of views is reached: 1"));
+        } catch (Exception e) {
+            throw new AssertionError("unexpected exception", e);
+        }
+    }
+
+    public void testViewLengthExceeded() throws Exception {
+        addView("view1", "from short");
+
+        // Long view definition should fail
+        StringBuilder longView = new StringBuilder("from ");
+        for (int i = 0; i < ViewService.ViewServiceConfig.DEFAULT.maxViewSize(); i++) {
+            longView.append("a");
+        }
+        Exception e = expectThrows(IllegalArgumentException.class, () -> addView("viewX", longView.toString()));
+        assertThat(e.getMessage(), startsWith("view query is too large: 10005 characters, the maximum allowed is 10000"));
+    }
+
+    public void testModifiedViewLength() {
+        var config = new ViewService.ViewServiceConfig(100, 6, 10);
+        InMemoryViewService customViewService = new InMemoryViewService(functionRegistry, config);
+        try {
+            addView("view1", "from a", customViewService);
+
+            // Just one character longer should fail
+            Exception e = expectThrows(IllegalArgumentException.class, () -> addView("view2", "from aa", customViewService));
+            assertThat(e.getMessage(), startsWith("view query is too large: 7 characters, the maximum allowed is 6"));
+        } catch (Exception e) {
+            throw new AssertionError("unexpected exception", e);
+        }
+    }
+
+    private void addView(String name, String query) {
         addView(name, query, viewService);
     }
 
-    private void addView(String name, String query, ViewService viewService) throws Exception {
+    private void addView(String name, String query, ViewService viewService) {
         viewService.put(name, new View(query), ActionListener.noop(), EsqlTestUtils.TEST_CFG);
     }
 
