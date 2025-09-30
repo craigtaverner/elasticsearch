@@ -7,6 +7,7 @@
 
 package org.elasticsearch.xpack.esql.optimizer.rules.logical;
 
+import org.elasticsearch.core.Tuple;
 import org.elasticsearch.xpack.esql.core.expression.Alias;
 import org.elasticsearch.xpack.esql.core.expression.Attribute;
 import org.elasticsearch.xpack.esql.core.expression.AttributeMap;
@@ -15,6 +16,7 @@ import org.elasticsearch.xpack.esql.core.expression.Expression;
 import org.elasticsearch.xpack.esql.core.expression.Expressions;
 import org.elasticsearch.xpack.esql.core.expression.FoldContext;
 import org.elasticsearch.xpack.esql.core.expression.Literal;
+import org.elasticsearch.xpack.esql.core.expression.NamedExpression;
 import org.elasticsearch.xpack.esql.core.expression.ReferenceAttribute;
 import org.elasticsearch.xpack.esql.core.util.CollectionUtils;
 import org.elasticsearch.xpack.esql.expression.predicate.Predicates;
@@ -22,11 +24,14 @@ import org.elasticsearch.xpack.esql.optimizer.LogicalOptimizerContext;
 import org.elasticsearch.xpack.esql.plan.logical.Enrich;
 import org.elasticsearch.xpack.esql.plan.logical.Eval;
 import org.elasticsearch.xpack.esql.plan.logical.Filter;
+import org.elasticsearch.xpack.esql.plan.logical.Limit;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.plan.logical.OrderBy;
 import org.elasticsearch.xpack.esql.plan.logical.Project;
 import org.elasticsearch.xpack.esql.plan.logical.RegexExtract;
+import org.elasticsearch.xpack.esql.plan.logical.Subquery;
 import org.elasticsearch.xpack.esql.plan.logical.UnaryPlan;
+import org.elasticsearch.xpack.esql.plan.logical.UnionAll;
 import org.elasticsearch.xpack.esql.plan.logical.inference.InferencePlan;
 import org.elasticsearch.xpack.esql.plan.logical.join.InlineJoin;
 import org.elasticsearch.xpack.esql.plan.logical.join.Join;
@@ -109,6 +114,12 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
             // See also https://github.com/elastic/elasticsearch/issues/127497
             // Push down past INLINE STATS if the condition is on the groupings
             return pushDownPastJoin(filter, join, ctx.foldCtx());
+        } else if (child instanceof UnionAll unionAll) {
+            // Push down filters that can be evaluated using only the output of the UnionAll
+            plan = maybePushDownPastUnionAll(filter, unionAll);
+        } else if (child instanceof Subquery subquery) {
+            // subquery is a placeholder, push down the filter to the child of the subquery
+            plan = subquery.replaceChild(new Filter(filter.source(), subquery.child(), filter.condition()));
         }
         // cannot push past a Limit, this could change the tailing result set returned
         return plan;
@@ -282,5 +293,161 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
             plan = filter;
         }
         return plan;
+    }
+
+    /* Push down filters that can be evaluated by the UnionAll child/leg to each child/leg,
+     * so that the filters can be pushed down further to the data source if possible.
+     * Filters that cannot be pushed down remain above the UnionAll.
+     *
+     * The children of a UnionAll/Fork plan has a similar pattern, as Fork adds EsqlProject,
+     * an optional Eval and Limit on top of its actual children.
+     * UnionAll
+     *   EsqlProject
+     *     Eval (optional)
+     *       Limit
+     *         EsRelation
+     *   EsqlProject
+     *     Eval (optional)
+     *       Limit
+     *         Subquery
+     *
+     * Push down the filter below limit when possible
+     */
+    private static LogicalPlan maybePushDownPastUnionAll(Filter filter, UnionAll unionAll) {
+        List<Expression> pushable = new ArrayList<>();
+        List<Expression> nonPushable = new ArrayList<>();
+        for (Expression exp : Predicates.splitAnd(filter.condition())) {
+            if (exp.references().subsetOf(unionAll.outputSet())) {
+                pushable.add(exp);
+            } else {
+                nonPushable.add(exp);
+            }
+        }
+        if (pushable.isEmpty()) {
+            return filter; // nothing to push down
+        }
+
+        // Push the filter down to each child of the UnionAll, the child of a UnionAll is always a project
+        // followed by an optional eval and then limit added by fork and then the real child
+        List<LogicalPlan> newChildren = new ArrayList<>();
+        boolean changed = false;
+        for (LogicalPlan child : unionAll.children()) {
+            if (child instanceof Project project) {
+                LogicalPlan newChild = maybePushDownFilterPastEvalAndLimitForUnionAllChild(pushable, project);
+                if (newChild != child) {
+                    changed = true;
+                }
+                newChildren.add(newChild);
+            } else { // unexpected pattern, just add the child as is
+                newChildren.add(child);
+            }
+        }
+
+        if (changed == false) { // nothing changed, return the original plan
+            return filter;
+        }
+
+        LogicalPlan newUnionAll = unionAll.replaceChildren(newChildren);
+        if (nonPushable.isEmpty()) {
+            return newUnionAll;
+        } else {
+            return filter.with(newUnionAll, Predicates.combineAnd(nonPushable));
+        }
+    }
+
+    private static LogicalPlan maybePushDownFilterPastEvalAndLimitForUnionAllChild(List<Expression> pushable, Project project) {
+        LogicalPlan child = project.child();
+        if (child instanceof Eval eval) {
+            return pushDownFilterPastEvalForUnionAllChild(pushable, project, eval);
+        } else if (child instanceof Limit limit) {
+            LogicalPlan newLimit = pushDownFilterPastLimitForUnionAllChild(pushable, limit);
+            return project.replaceChild(newLimit);
+        }
+        return project;
+    }
+
+    private static LogicalPlan pushDownFilterPastEvalForUnionAllChild(List<Expression> pushable, Project project, Eval eval) {
+        AttributeMap<Expression> evalAliases = buildEvaAliases(eval);
+
+        Tuple<List<Expression>, List<Expression>> pushablesAndNonPushables = splitPushableAndNonPushablePredicates(
+            pushable,
+            project.projections(),
+            exp -> exp.references().stream().anyMatch(evalAliases::containsKey)
+        );
+
+        LogicalPlan evalChild = eval.child();
+
+        if (evalChild instanceof Limit limit) {
+            LogicalPlan newLimit = pushDownFilterPastLimitForUnionAllChild(pushablesAndNonPushables.v1(), limit);
+            LogicalPlan newEval = eval.replaceChild(newLimit);
+            if (pushablesAndNonPushables.v2().isEmpty()) {
+                return project.replaceChild(newEval);
+            } else {
+                Filter newFilter = new Filter(project.source(), newEval, Predicates.combineAnd(pushablesAndNonPushables.v2()));
+                return project.replaceChild(newFilter);
+            }
+        }
+        return project;
+    }
+
+    private static LogicalPlan pushDownFilterPastLimitForUnionAllChild(List<Expression> pushable, Limit limit) {
+        // check whether the pushable expression's attribute needs to be replaced
+        Tuple<List<Expression>, List<Expression>> pushablesAndNonPushables = splitPushableAndNonPushablePredicates(
+            pushable,
+            limit.output(),
+            exp -> exp.references().subsetOf(limit.outputSet()) == false
+        );
+
+        if (pushablesAndNonPushables.v1().isEmpty() || pushablesAndNonPushables.v2().isEmpty() == false) {
+            return limit;
+        }
+        Expression combined = Predicates.combineAnd(pushablesAndNonPushables.v1());
+        Filter pushed = new Filter(limit.source(), limit.child(), combined);
+        return limit.replaceChild(pushed);
+    }
+
+    private static AttributeMap<Expression> buildEvaAliases(Eval eval) {
+        AttributeMap.Builder<Expression> builder = AttributeMap.builder();
+        for (Alias alias : eval.fields()) {
+            builder.put(alias.toAttribute(), alias.child());
+        }
+        return builder.build();
+    }
+
+    private static Tuple<List<Expression>, List<Expression>> splitPushableAndNonPushablePredicates(
+        List<Expression> predicates,
+        List<? extends NamedExpression> attributes,
+        Predicate<Expression> nonPushableCheck
+    ) {
+        List<Expression> pushable = new ArrayList<>();
+        List<Expression> nonPushable = new ArrayList<>();
+        for (Expression exp : predicates) {
+            Expression replaced = replaceAttributesByName(exp, attributes);
+            if (replaced == null || nonPushableCheck.test(replaced)) {
+                nonPushable.add(replaced);
+            } else {
+                pushable.add(replaced);
+            }
+        }
+        return Tuple.tuple(pushable, nonPushable);
+    }
+
+    private static Expression replaceAttributesByName(Expression expr, List<? extends NamedExpression> namedExpressions) {
+        // Collect all referenced attributes
+        for (Attribute attr : expr.references()) {
+            boolean found = namedExpressions.stream().anyMatch(ne -> ne.name().equals(attr.name()));
+            if (found == false) {
+                return null;
+            }
+        }
+        // Replace attributes by name
+        return expr.transformUp(Attribute.class, attr -> {
+            for (NamedExpression ne : namedExpressions) {
+                if (ne.name().equals(attr.name())) {
+                    return ne.toAttribute();
+                }
+            }
+            return attr;
+        });
     }
 }
