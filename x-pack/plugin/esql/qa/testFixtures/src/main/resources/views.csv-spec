@@ -63,6 +63,30 @@ count:long | country:keyword
 11         | Nigeria
 ;
 
+countriesAirportsAddresses
+required_capability: views_v1
+
+FROM address_countries, airports_countries
+| STATS count=SUM(count) BY country
+| WHERE count > 11
+;
+ignoreOrder:true
+
+count:long | country:keyword
+130        | United States
+50         | India
+45         | Mexico
+41         | China
+37         | Canada
+31         | Brazil
+26         | Russia
+17         | Australia
+17         | United Kingdom
+13         | Argentina
+12         | France
+12         | Indonesia
+;
+
 languages
 required_capability: views_v1
 
