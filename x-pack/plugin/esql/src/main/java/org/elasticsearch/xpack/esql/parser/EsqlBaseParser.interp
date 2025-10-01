@@ -322,9 +322,6 @@ rerankField
 fromCommand
 timeSeriesCommand
 indexPatternAndMetadataFields
-indexPatternOrSubquery
-subquery
-subqueryProcessingCommand
 indexPattern
 clusterString
 selectorString

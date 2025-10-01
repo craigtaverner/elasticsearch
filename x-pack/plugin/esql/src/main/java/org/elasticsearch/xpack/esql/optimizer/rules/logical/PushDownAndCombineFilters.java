@@ -29,7 +29,6 @@ import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.plan.logical.OrderBy;
 import org.elasticsearch.xpack.esql.plan.logical.Project;
 import org.elasticsearch.xpack.esql.plan.logical.RegexExtract;
-import org.elasticsearch.xpack.esql.plan.logical.Subquery;
 import org.elasticsearch.xpack.esql.plan.logical.UnaryPlan;
 import org.elasticsearch.xpack.esql.plan.logical.UnionAll;
 import org.elasticsearch.xpack.esql.plan.logical.inference.InferencePlan;
@@ -41,6 +40,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
+
+import static org.elasticsearch.xpack.esql.core.expression.Attribute.SYNTHETIC_ATTRIBUTE_NAME_SEPARATOR;
+import static org.elasticsearch.xpack.esql.core.expression.Attribute.rawTemporaryName;
 
 /**
  * Perform filters as early as possible in the logical plan by pushing them past certain plan nodes (like {@link Eval},
@@ -117,9 +119,6 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
         } else if (child instanceof UnionAll unionAll) {
             // Push down filters that can be evaluated using only the output of the UnionAll
             plan = maybePushDownPastUnionAll(filter, unionAll);
-        } else if (child instanceof Subquery subquery) {
-            // subquery is a placeholder, push down the filter to the child of the subquery
-            plan = subquery.replaceChild(new Filter(filter.source(), subquery.child(), filter.condition()));
         }
         // cannot push past a Limit, this could change the tailing result set returned
         return plan;
@@ -296,7 +295,7 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
     }
 
     /* Push down filters that can be evaluated by the UnionAll child/leg to each child/leg,
-     * so that the filters can be pushed down further to the data source if possible.
+     * so that the filters can be pushed down further to the data source when possible.
      * Filters that cannot be pushed down remain above the UnionAll.
      *
      * The children of a UnionAll/Fork plan has a similar pattern, as Fork adds EsqlProject,
@@ -326,7 +325,9 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
         if (pushable.isEmpty()) {
             return filter; // nothing to push down
         }
-
+        // Preserve the filter on top of UnionAll if not all pushable predicates can be pushed down into UnionAll children.
+        // This happens when the pushable predicate contains ReferenceAttribute that cannot be mapped to children's output correctly.
+        boolean preserveOriginalFilterOnTopOfUnionAll = false;
         // Push the filter down to each child of the UnionAll, the child of a UnionAll is always a project
         // followed by an optional eval and then limit added by fork and then the real child
         List<LogicalPlan> newChildren = new ArrayList<>();
@@ -336,6 +337,8 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
                 LogicalPlan newChild = maybePushDownFilterPastEvalAndLimitForUnionAllChild(pushable, project);
                 if (newChild != child) {
                     changed = true;
+                } else {
+                    preserveOriginalFilterOnTopOfUnionAll = true;
                 }
                 newChildren.add(newChild);
             } else { // unexpected pattern, just add the child as is
@@ -348,6 +351,11 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
         }
 
         LogicalPlan newUnionAll = unionAll.replaceChildren(newChildren);
+        if (preserveOriginalFilterOnTopOfUnionAll) {
+            // Preserve the filter on top of UnionAll as some pushable predicates cannot be pushed down
+            // to make sure correct results are returned
+            return filter.replaceChild(newUnionAll);
+        }
         if (nonPushable.isEmpty()) {
             return newUnionAll;
         } else {
@@ -356,52 +364,77 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
     }
 
     private static LogicalPlan maybePushDownFilterPastEvalAndLimitForUnionAllChild(List<Expression> pushable, Project project) {
+        List<Expression> resolvedPushable = new ArrayList<>();
+        // Make sure the pushable predicates can find their corresponding attributes in the child project
+        for (Expression exp : pushable) {
+            Expression replaced = resolveUnionAllOutputByName(exp, project.projections());
+            if (replaced == null || replaced == exp) {
+                // cannot find the attribute in the child project, cannot push down this filter
+                return project;
+            } else {
+                resolvedPushable.add(replaced);
+            }
+        }
+        if (resolvedPushable.size() != pushable.size()) {
+            // Some pushable predicates cannot be resolved to the child project, cannot push down.
+            // This should not happen, however we need to be cautious here, if the predicate is removed from the main query,
+            // and it is not pushed down into the UnionAll child, the result will be incorrect.
+            return project;
+        }
         LogicalPlan child = project.child();
         if (child instanceof Eval eval) {
-            return pushDownFilterPastEvalForUnionAllChild(pushable, project, eval);
+            return pushDownFilterPastEvalForUnionAllChild(resolvedPushable, project, eval);
         } else if (child instanceof Limit limit) {
-            LogicalPlan newLimit = pushDownFilterPastLimitForUnionAllChild(pushable, limit);
+            LogicalPlan newLimit = pushDownFilterPastLimitForUnionAllChild(resolvedPushable, limit);
             return project.replaceChild(newLimit);
         }
         return project;
     }
 
     private static LogicalPlan pushDownFilterPastEvalForUnionAllChild(List<Expression> pushable, Project project, Eval eval) {
+        // if the pushable references any attribute created by the eval, we cannot push down
         AttributeMap<Expression> evalAliases = buildEvaAliases(eval);
-
         Tuple<List<Expression>, List<Expression>> pushablesAndNonPushables = splitPushableAndNonPushablePredicates(
             pushable,
-            project.projections(),
             exp -> exp.references().stream().anyMatch(evalAliases::containsKey)
         );
+        List<Expression> pushables = pushablesAndNonPushables.v1();
+        List<Expression> nonPushables = pushablesAndNonPushables.v2();
 
         LogicalPlan evalChild = eval.child();
 
-        if (evalChild instanceof Limit limit) {
-            LogicalPlan newLimit = pushDownFilterPastLimitForUnionAllChild(pushablesAndNonPushables.v1(), limit);
-            LogicalPlan newEval = eval.replaceChild(newLimit);
-            if (pushablesAndNonPushables.v2().isEmpty()) {
-                return project.replaceChild(newEval);
-            } else {
-                Filter newFilter = new Filter(project.source(), newEval, Predicates.combineAnd(pushablesAndNonPushables.v2()));
-                return project.replaceChild(newFilter);
-            }
+        // Nothing to push down under eval and limit
+        if (pushables.isEmpty()) {
+            return nonPushables.isEmpty()
+                ? project // nothing at all
+                : withFilter(project, eval, nonPushables); // Push down filter references eval created attributes below project, above eval
         }
+
+        // Push down all pushable predicates below eval and limit
+        if (evalChild instanceof Limit limit) {
+            LogicalPlan newLimit = pushDownFilterPastLimitForUnionAllChild(pushables, limit);
+            LogicalPlan newEval = eval.replaceChild(newLimit);
+
+            return nonPushables.isEmpty() ? project.replaceChild(newEval) : withFilter(project, newEval, nonPushables);
+        }
+
         return project;
     }
 
-    private static LogicalPlan pushDownFilterPastLimitForUnionAllChild(List<Expression> pushable, Limit limit) {
-        // check whether the pushable expression's attribute needs to be replaced
-        Tuple<List<Expression>, List<Expression>> pushablesAndNonPushables = splitPushableAndNonPushablePredicates(
-            pushable,
-            limit.output(),
-            exp -> exp.references().subsetOf(limit.outputSet()) == false
-        );
+    private static LogicalPlan withFilter(Project project, LogicalPlan child, List<Expression> predicates) {
+        Expression combined = Predicates.combineAnd(predicates);
+        return project.replaceChild(new Filter(project.source(), child, combined));
+    }
 
-        if (pushablesAndNonPushables.v1().isEmpty() || pushablesAndNonPushables.v2().isEmpty() == false) {
+    /**
+     * limit does not create any new attributes, so we should push down all pushable predicates,
+     * the caller should make sure the pushable is really pushable.
+     */
+    private static LogicalPlan pushDownFilterPastLimitForUnionAllChild(List<Expression> pushable, Limit limit) {
+        if (pushable.isEmpty()) {
             return limit;
         }
-        Expression combined = Predicates.combineAnd(pushablesAndNonPushables.v1());
+        Expression combined = Predicates.combineAnd(pushable);
         Filter pushed = new Filter(limit.source(), limit.child(), combined);
         return limit.replaceChild(pushed);
     }
@@ -416,34 +449,44 @@ public final class PushDownAndCombineFilters extends OptimizerRules.Parameterize
 
     private static Tuple<List<Expression>, List<Expression>> splitPushableAndNonPushablePredicates(
         List<Expression> predicates,
-        List<? extends NamedExpression> attributes,
         Predicate<Expression> nonPushableCheck
     ) {
         List<Expression> pushable = new ArrayList<>();
         List<Expression> nonPushable = new ArrayList<>();
         for (Expression exp : predicates) {
-            Expression replaced = replaceAttributesByName(exp, attributes);
-            if (replaced == null || nonPushableCheck.test(replaced)) {
-                nonPushable.add(replaced);
+            if (nonPushableCheck.test(exp)) {
+                nonPushable.add(exp);
             } else {
-                pushable.add(replaced);
+                pushable.add(exp);
             }
         }
         return Tuple.tuple(pushable, nonPushable);
     }
 
-    private static Expression replaceAttributesByName(Expression expr, List<? extends NamedExpression> namedExpressions) {
-        // Collect all referenced attributes
-        for (Attribute attr : expr.references()) {
-            boolean found = namedExpressions.stream().anyMatch(ne -> ne.name().equals(attr.name()));
-            if (found == false) {
-                return null;
-            }
-        }
-        // Replace attributes by name
-        return expr.transformUp(Attribute.class, attr -> {
+    /**
+     * The UnionAll/Fork outputs have the same names as it children's outputs, however they have different ids.
+     * Convert the pushable predicates to use the child's attributes, so that they can be pushed down further.
+     */
+    private static Expression resolveUnionAllOutputByName(Expression expr, List<? extends NamedExpression> namedExpressions) {
+        // A temporary expression is created with temporary attributes names, as sometimes transform expression does not transform
+        // one ReferenceAttribute to another ReferenceAttribute with the same name, different id successfully.
+        String UNIONALL = "unionall";
+        // rename the output of the UnionAll to a temporary name with a prefix
+        Expression renamed = expr.transformUp(Attribute.class, attr -> {
             for (NamedExpression ne : namedExpressions) {
                 if (ne.name().equals(attr.name())) {
+                    // $$subquery$attr.name()
+                    return attr.withName(rawTemporaryName(UNIONALL, ne.name()));
+                }
+            }
+            return attr;
+        });
+
+        String prefix = Attribute.SYNTHETIC_ATTRIBUTE_NAME_PREFIX + UNIONALL + SYNTHETIC_ATTRIBUTE_NAME_SEPARATOR;
+        return renamed.transformUp(Attribute.class, attr -> {
+            String originalName = attr.name().startsWith(prefix) ? attr.name().substring(prefix.length()) : attr.name();
+            for (NamedExpression ne : namedExpressions) {
+                if (ne.name().equals(originalName)) {
                     return ne.toAttribute();
                 }
             }

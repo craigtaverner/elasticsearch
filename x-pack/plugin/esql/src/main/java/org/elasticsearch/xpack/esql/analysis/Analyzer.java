@@ -250,19 +250,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
         @Override
         protected LogicalPlan rule(UnresolvedRelation plan, AnalyzerContext context) {
-            String indexPattern = plan.indexPattern().indexPattern();
-            IndexResolution indexResolution;
-            if (plan.indexMode().equals(IndexMode.LOOKUP)) { // index on the RHS of lookup join
-                indexResolution = context.lookupResolution().get(indexPattern);
-            } else { // main index or index in subquery
-                indexResolution = context.indexResolution();
-                if (indexPattern != null
-                    && indexResolution.matches(indexPattern) == false
-                    && context.subqueryResolution().isEmpty() == false) {
-                    // index pattern does not match main index
-                    indexResolution = context.subqueryResolution().getOrDefault(indexPattern, indexResolution);
-                }
-            }
+            IndexResolution indexResolution = plan.indexMode().equals(IndexMode.LOOKUP)
+                ? context.lookupResolution().get(plan.indexPattern().indexPattern())
+                : context.indexResolution().get(plan.indexPattern());
             return resolveIndex(plan, indexResolution);
         }
 
@@ -548,7 +538,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             }
 
             if (plan instanceof Insist i) {
-                return resolveInsist(i, childrenOutput, context.indexResolution());
+                return resolveInsist(i, childrenOutput, context.indexResolution().values());
             }
 
             if (plan instanceof Fuse fuse) {
@@ -971,7 +961,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return resolved;
         }
 
-        private LogicalPlan resolveInsist(Insist insist, List<Attribute> childrenOutput, IndexResolution indexResolution) {
+        private LogicalPlan resolveInsist(Insist insist, List<Attribute> childrenOutput, Collection<IndexResolution> indexResolution) {
             List<Attribute> list = new ArrayList<>();
             for (Attribute a : insist.insistedAttributes()) {
                 list.add(resolveInsistAttribute(a, childrenOutput, indexResolution));
@@ -979,7 +969,11 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return insist.withAttributes(list);
         }
 
-        private Attribute resolveInsistAttribute(Attribute attribute, List<Attribute> childrenOutput, IndexResolution indexResolution) {
+        private Attribute resolveInsistAttribute(
+            Attribute attribute,
+            List<Attribute> childrenOutput,
+            Collection<IndexResolution> indexResolution
+        ) {
             Attribute resolvedCol = maybeResolveAttribute((UnresolvedAttribute) attribute, childrenOutput);
             // Field isn't mapped anywhere.
             if (resolvedCol instanceof UnresolvedAttribute) {
@@ -987,7 +981,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             }
 
             // Field is partially unmapped.
-            if (resolvedCol instanceof FieldAttribute fa && indexResolution.get().isPartiallyUnmappedField(fa.name())) {
+            // TODO: Should the check for partially unmapped fields be done specific to each sub-query in a fork?
+            if (resolvedCol instanceof FieldAttribute fa
+                && indexResolution.stream().anyMatch(r -> r.get().isPartiallyUnmappedField(fa.name()))) {
                 return fa.dataType() == KEYWORD ? insistKeyword(fa) : invalidInsistAttribute(fa);
             }
 

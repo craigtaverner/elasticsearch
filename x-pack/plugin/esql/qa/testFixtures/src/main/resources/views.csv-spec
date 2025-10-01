@@ -8,7 +8,7 @@ ignoreOrder:true
 count:long | country:keyword
 1          | Japan
 1          | Netherlands
-1          | United States of America
+1          | United States
 ;
 
 airports
@@ -63,6 +63,26 @@ count:long | country:keyword
 11         | Nigeria
 ;
 
+airportsCountriesFiltered
+required_capability: views_v1
+
+FROM airports_countries
+| WHERE count > 15
+;
+ignoreOrder:true
+
+count:long | country:keyword
+129        | United States
+50         | India
+45         | Mexico
+41         | China
+37         | Canada
+31         | Brazil
+26         | Russia
+17         | Australia
+17         | United Kingdom
+;
+
 countriesAirportsAddresses
 required_capability: views_v1
 
@@ -87,25 +107,39 @@ count:long | country:keyword
 12         | Indonesia
 ;
 
+countriesAirportsAddressesUS
+required_capability: views_v1
+
+FROM address_countries, airports_countries
+| WHERE country == "United States"
+;
+ignoreOrder:true
+
+count:long | country:keyword
+130        | United States
+1          | United States
+;
+
 languages
 required_capability: views_v1
 
 FROM languages_lookup_non_unique_key
 | MV_EXPAND country
 | WHERE country IS NOT NULL AND country NOT LIKE ("*-Land*")
+| EVAL country = CASE(country == "United States of America", "United States", country)
 | STATS count=COUNT() BY country
 | SORT count DESC, country ASC
 ;
 ignoreOrder:true
 
-count:long | country:text
+count:long | country:keyword
 1          | Atlantis
 1          | Austria
 1          | Canada
 1          | Germany
 1          | Switzerland
 1          | United Kingdom
-1          | United States of America
+1          | United States
 ;
 
 languagesCountries
@@ -115,12 +149,12 @@ FROM languages_countries
 ;
 ignoreOrder:true
 
-count:long | country:text
+count:long | country:keyword
 1          | Atlantis
 1          | Austria
 1          | Canada
 1          | Germany
 1          | Switzerland
 1          | United Kingdom
-1          | United States of America
+1          | United States
 ;

@@ -8,7 +8,6 @@
 package org.elasticsearch.xpack.esql.analysis;
 
 import org.elasticsearch.index.IndexMode;
-import org.elasticsearch.xpack.esql.action.EsqlCapabilities;
 import org.elasticsearch.xpack.esql.core.util.Holder;
 import org.elasticsearch.xpack.esql.expression.function.UnresolvedFunction;
 import org.elasticsearch.xpack.esql.plan.IndexPattern;
@@ -17,9 +16,9 @@ import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.plan.logical.UnresolvedRelation;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /**
  * This class is part of the planner.  Acts somewhat like a linker, to find the indices and enrich policies referenced by the query.
@@ -27,15 +26,13 @@ import java.util.Set;
 public class PreAnalyzer {
 
     public record PreAnalysis(
-        IndexMode indexMode,
-        IndexPattern indexPattern,
+        Map<IndexPattern, IndexMode> indexes,
         List<Enrich> enriches,
         List<IndexPattern> lookupIndices,
         boolean supportsAggregateMetricDouble,
-        boolean supportsDenseVector,
-        Set<IndexPattern> subqueryIndices
+        boolean supportsDenseVector
     ) {
-        public static final PreAnalysis EMPTY = new PreAnalysis(null, null, List.of(), List.of(), false, false, Set.of());
+        public static final PreAnalysis EMPTY = new PreAnalysis(null, List.of(), List.of(), false, false);
     }
 
     public PreAnalysis preAnalyze(LogicalPlan plan) {
@@ -47,23 +44,15 @@ public class PreAnalyzer {
     }
 
     protected PreAnalysis doPreAnalyze(LogicalPlan plan) {
-        Holder<IndexMode> indexMode = new Holder<>();
-        Holder<IndexPattern> indexPattern = new Holder<>();
+        Map<IndexPattern, IndexMode> indexes = new HashMap<>();
         List<IndexPattern> lookupIndices = new ArrayList<>();
-        Set<IndexPattern> subqueryIndices = new HashSet<>();
         plan.forEachUp(UnresolvedRelation.class, p -> {
             if (p.indexMode() == IndexMode.LOOKUP) {
                 lookupIndices.add(p.indexPattern());
-            } else if (indexMode.get() == null || indexMode.get() == p.indexMode()) {
-                indexMode.set(p.indexMode());
-                // the index pattern from main query is always the first to be seen
-                indexPattern.setIfAbsent(p.indexPattern());
-                // collect subquery index patterns
-                if (EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled()) {
-                    collectSubqueryIndexPattern(p, subqueryIndices, indexPattern.get());
-                }
+            } else if (indexes.containsKey(p.indexPattern()) == false) {
+                indexes.put(p.indexPattern(), p.indexMode());
             } else {
-                throw new IllegalStateException("index mode is already set");
+                throw new IllegalStateException("index pattern already found: " + p.indexPattern());
             }
         });
 
@@ -81,6 +70,11 @@ public class PreAnalyzer {
          */
         Holder<Boolean> supportsAggregateMetricDouble = new Holder<>(false);
         Holder<Boolean> supportsDenseVector = new Holder<>(false);
+        indexes.forEach((ip, mode) -> {
+            if (mode == IndexMode.TIME_SERIES) {
+                supportsAggregateMetricDouble.set(true);
+            }
+        });
         plan.forEachDown(p -> p.forEachExpression(UnresolvedFunction.class, fn -> {
             if (fn.name().equalsIgnoreCase("knn")
                 || fn.name().equalsIgnoreCase("to_dense_vector")
@@ -100,38 +94,6 @@ public class PreAnalyzer {
         // mark plan as preAnalyzed (if it were marked, there would be no analysis)
         plan.forEachUp(LogicalPlan::setPreAnalyzed);
 
-        return new PreAnalysis(
-            indexMode.get(),
-            indexPattern.get(),
-            unresolvedEnriches,
-            lookupIndices,
-            indexMode.get() == IndexMode.TIME_SERIES || supportsAggregateMetricDouble.get(),
-            supportsDenseVector.get(),
-            subqueryIndices
-        );
-    }
-
-    private void collectSubqueryIndexPattern(
-        UnresolvedRelation relation,
-        Set<IndexPattern> subqueryIndices,
-        IndexPattern mainIndexPattern
-    ) {
-        if (relation.preAnalyzed()) {
-            return;
-        }
-
-        IndexPattern pattern = relation.indexPattern();
-        boolean isLookup = relation.indexMode() == IndexMode.LOOKUP;
-        boolean isMainIndexPattern = pattern == mainIndexPattern;
-        /*if the subquery's index pattern is the same as the main query, it won't be added
-        * to the subquery indices set, if Analyzer doesn't find the subquery' indexResolution,
-        * it falls back to the main query's indexResolution
-         */
-        if (isLookup || isMainIndexPattern) {
-            return;
-        }
-        subqueryIndices.add(pattern);
-        System.out.println("collected subquery index pattern: " + pattern);
-        System.out.println("subquery indices now: " + subqueryIndices);
+        return new PreAnalysis(indexes, unresolvedEnriches, lookupIndices, supportsAggregateMetricDouble.get(), supportsDenseVector.get());
     }
 }

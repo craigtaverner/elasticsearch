@@ -43,7 +43,6 @@ import org.elasticsearch.xpack.esql.plan.logical.Filter;
 import org.elasticsearch.xpack.esql.plan.logical.Limit;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.plan.logical.Project;
-import org.elasticsearch.xpack.esql.plan.logical.Subquery;
 import org.elasticsearch.xpack.esql.plan.logical.UnionAll;
 import org.elasticsearch.xpack.esql.plan.logical.inference.Completion;
 import org.elasticsearch.xpack.esql.plan.logical.inference.Rerank;
@@ -1011,6 +1010,7 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     }
 
     public void testPushDownSimpleFilterPastUnionAll() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         var plan = planSubquery("""
             FROM test, (FROM test1 | WHERE languages > 0), (FROM languages | WHERE language_code > 0)
@@ -1036,8 +1036,10 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
         EsqlProject child2 = as(unionAll.children().get(1), EsqlProject.class);
         eval = as(child2.child(), Eval.class);
         childLimit = as(eval.child(), Limit.class);
+        /*
         Subquery subquery = as(childLimit.child(), Subquery.class);
         childFilter = as(subquery.child(), Filter.class);
+         */
         And and = as(childFilter.condition(), And.class);
         greaterThan = as(and.left(), GreaterThan.class);
         empNo = as(greaterThan.left(), FieldAttribute.class);
@@ -1086,8 +1088,10 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
         EsqlProject child2 = as(unionAll.children().get(1), EsqlProject.class);
         eval = as(child2.child(), Eval.class);
         childLimit = as(eval.child(), Limit.class);
+        /*
         Subquery subquery = as(childLimit.child(), Subquery.class);
         childFilter = as(subquery.child(), Filter.class);
+         */
         and = as(childFilter.condition(), And.class);
         GreaterThan greaterThan = as(and.left(), GreaterThan.class);
         FieldAttribute languages = as(greaterThan.left(), FieldAttribute.class);
@@ -1111,6 +1115,7 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     }
 
     public void testPushDownDisjunctiveFilterPastUnionAll() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         var plan = planSubquery("""
             FROM test, (FROM test1 | WHERE languages > 0), (FROM languages | WHERE language_code > 0)
@@ -1141,8 +1146,10 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
         EsqlProject child2 = as(unionAll.children().get(1), EsqlProject.class);
         eval = as(child2.child(), Eval.class);
         childLimit = as(eval.child(), Limit.class);
+        /*
         Subquery subquery = as(childLimit.child(), Subquery.class);
         childFilter = as(subquery.child(), Filter.class);
+         */
         And and = as(childFilter.condition(), And.class);
         GreaterThan greaterThan = as(and.left(), GreaterThan.class);
         FieldAttribute languages = as(greaterThan.left(), FieldAttribute.class);
@@ -1166,6 +1173,7 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     }
 
     public void testPushDownAndCombineFilterPastUnionAll() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         var plan = planSubquery("""
             FROM test, (FROM test1 | where salary < 100000), (FROM languages  | WHERE language_code > 0)
@@ -1196,8 +1204,10 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
         EsqlProject child2 = as(unionAll.children().get(1), EsqlProject.class);
         eval = as(child2.child(), Eval.class);
         childLimit = as(eval.child(), Limit.class);
+        /*
         Subquery subquery = as(childLimit.child(), Subquery.class);
         childFilter = as(subquery.child(), Filter.class);
+         */
         and = as(childFilter.condition(), And.class);
         And empNoAndSalary = as(and.right(), And.class);
         emp_no = as(empNoAndSalary.left(), GreaterThan.class);

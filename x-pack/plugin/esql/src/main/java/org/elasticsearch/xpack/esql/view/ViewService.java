@@ -15,7 +15,9 @@ import org.elasticsearch.xpack.esql.VerificationException;
 import org.elasticsearch.xpack.esql.expression.function.EsqlFunctionRegistry;
 import org.elasticsearch.xpack.esql.parser.EsqlParser;
 import org.elasticsearch.xpack.esql.parser.QueryParams;
+import org.elasticsearch.xpack.esql.plan.IndexPattern;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
+import org.elasticsearch.xpack.esql.plan.logical.UnionAll;
 import org.elasticsearch.xpack.esql.plan.logical.UnresolvedRelation;
 import org.elasticsearch.xpack.esql.session.Configuration;
 import org.elasticsearch.xpack.esql.telemetry.PlanTelemetry;
@@ -61,20 +63,48 @@ public abstract class ViewService {
         while (true) {
             LogicalPlan prev = plan;
             plan = plan.transformUp(UnresolvedRelation.class, ur -> {
-                String name = ur.indexPattern().indexPattern();
-                if (views.views().containsKey(name) == false) {
+                List<String> indexes = new ArrayList<>();
+                List<LogicalPlan> subqueries = new ArrayList<>();
+                for (String name : ur.indexPattern().indexPattern().split(",")) {
+                    name = name.trim();
+                    if (views.views().containsKey(name)) {
+                        boolean alreadySeen = seen.contains(name);
+                        seen.add(name);
+                        if (alreadySeen) {
+                            throw viewError("circular view reference ", seen);
+                        }
+                        if (seen.size() > config.maxViewDepth) {
+                            throw viewError("The maximum allowed view depth of " + config.maxViewDepth + " has been exceeded: ", seen);
+                        }
+                        View view = views.views().get(name);
+                        subqueries.add(resolve(view, telemetry, configuration));
+                    } else {
+                        indexes.add(name);
+                    }
+                }
+                if (subqueries.isEmpty()) {
+                    // No views defined, just return the original plan
                     return ur;
                 }
-                View view = views.views().get(name);
-                boolean alreadySeen = seen.contains(name);
-                seen.add(name);
-                if (alreadySeen) {
-                    throw viewError("circular view reference ", seen);
+                if (indexes.isEmpty()) {
+                    if (subqueries.size() == 1) {
+                        // only one view, no need for union
+                        return subqueries.getFirst();
+                    }
+                } else {
+                    subqueries.add(
+                        0,
+                        new UnresolvedRelation(
+                            ur.source(),
+                            new IndexPattern(ur.indexPattern().source(), String.join(",", indexes)),
+                            ur.frozen(),
+                            ur.metadataFields(),
+                            ur.indexMode(),
+                            ur.unresolvedMessage()
+                        )
+                    );
                 }
-                if (seen.size() > config.maxViewDepth) {
-                    throw viewError("The maximum allowed view depth of " + config.maxViewDepth + " has been exceeded: ", seen);
-                }
-                return resolve(view, telemetry, configuration);
+                return new UnionAll(ur.source(), subqueries, List.of());
             });
             if (plan.equals(prev)) {
                 return prev;

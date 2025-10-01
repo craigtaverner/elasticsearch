@@ -449,9 +449,24 @@ public class EsqlSession {
     static void handleFieldCapsFailures(
         boolean allowPartialResults,
         EsqlExecutionInfo executionInfo,
-        Map<String, List<FieldCapabilitiesFailure>> failures
+        Map<IndexPattern, IndexResolution> indexResolutions
     ) throws Exception {
         FailureCollector failureCollector = new FailureCollector();
+        for (IndexResolution indexResolution : indexResolutions.values()) {
+            handleFieldCapsFailures(allowPartialResults, executionInfo, indexResolution.failures(), failureCollector);
+        }
+        Exception failure = failureCollector.getFailure();
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    static void handleFieldCapsFailures(
+        boolean allowPartialResults,
+        EsqlExecutionInfo executionInfo,
+        Map<String, List<FieldCapabilitiesFailure>> failures,
+        FailureCollector failureCollector
+    ) throws Exception {
         for (var e : failures.entrySet()) {
             String clusterAlias = e.getKey();
             EsqlExecutionInfo.Cluster cluster = executionInfo.getCluster(clusterAlias);
@@ -480,10 +495,6 @@ public class EsqlSession {
                     (k, curr) -> new EsqlExecutionInfo.Cluster.Builder(cluster).addFailures(shardFailures).build()
                 );
             }
-        }
-        Exception failure = failureCollector.getFailure();
-        if (failure != null) {
-            throw failure;
         }
     }
 
@@ -517,18 +528,17 @@ public class EsqlSession {
         PreAnalysisResult result,
         ActionListener<LogicalPlan> logicalPlanListener
     ) {
-        EsqlCCSUtils.initCrossClusterState(indicesExpressionGrouper, verifier.licenseState(), preAnalysis.indexPattern(), executionInfo);
+        EsqlCCSUtils.initCrossClusterState(
+            indicesExpressionGrouper,
+            verifier.licenseState(),
+            preAnalysis.indexes().keySet(),
+            executionInfo
+        );
 
-        SubscribableListener.<PreAnalysisResult>newForked(l -> preAnalyzeMainIndices(preAnalysis, executionInfo, result, requestFilter, l))
-            .andThenApply(r -> {
-                if (r.indices.isValid()
-                    && executionInfo.isCrossClusterSearch()
-                    && executionInfo.getRunningClusterAliases().findAny().isEmpty()) {
-                    LOGGER.debug("No more clusters to search, ending analysis stage");
-                    throw new NoClustersToSearchException();
-                }
-                return r;
-            })
+        SubscribableListener.<PreAnalysisResult>newForked(
+            l -> preAnalyzeMainIndices(preAnalysis.indexes().keySet().iterator(), preAnalysis, executionInfo, result, requestFilter, l)
+        )
+            .<PreAnalysisResult>andThen((l, r) -> validateClusters(preAnalysis.indexes().keySet().iterator(), executionInfo, r, l))
             .<PreAnalysisResult>andThen((l, r) -> preAnalyzeLookupIndices(preAnalysis.lookupIndices().iterator(), r, executionInfo, l))
             .<PreAnalysisResult>andThen((l, r) -> {
                 enrichPolicyResolver.resolvePolicies(preAnalysis.enriches(), executionInfo, l.map(r::withEnrichResolution));
@@ -536,91 +546,10 @@ public class EsqlSession {
             .<PreAnalysisResult>andThen((l, r) -> {
                 inferenceService.inferenceResolver(functionRegistry).resolveInferenceIds(parsed, l.map(r::withInferenceResolution));
             })
-            .<PreAnalysisResult>andThen(
-                (l, r) -> preAnalyzeSubqueryIndices(preAnalysis, preAnalysis.subqueryIndices().iterator(), r, executionInfo, l)
+            .<LogicalPlan>andThen(
+                (l, r) -> analyzeWithRetry(parsed, configuration, executionInfo, description, requestFilter, preAnalysis, r, l)
             )
-            .<LogicalPlan>andThen((l, r) -> analyzeWithRetry(parsed, configuration, executionInfo, description, requestFilter, preAnalysis, r, l))
             .addListener(logicalPlanListener);
-    }
-
-    private void preAnalyzeSubqueryIndices(
-        PreAnalyzer.PreAnalysis preAnalysis,
-        Iterator<IndexPattern> subqueryIndices,
-        PreAnalysisResult preAnalysisResult,
-        EsqlExecutionInfo executionInfo,
-        ActionListener<PreAnalysisResult> listener
-    ) {
-        if (subqueryIndices.hasNext()) {
-            preAnalyzeSubqueryIndex(
-                preAnalysis,
-                subqueryIndices.next(),
-                preAnalysisResult,
-                executionInfo,
-                listener.delegateFailureAndWrap((l, r) -> {
-                    preAnalyzeSubqueryIndices(preAnalysis, subqueryIndices, r, executionInfo, l);
-                })
-            );
-        } else {
-            listener.onResponse(preAnalysisResult);
-        }
-    }
-
-    private void preAnalyzeSubqueryIndex(
-        PreAnalyzer.PreAnalysis preAnalysis,
-        IndexPattern subqueryIndexPattern,
-        PreAnalysisResult result,
-        EsqlExecutionInfo executionInfo,
-        ActionListener<PreAnalysisResult> listener
-    ) {
-        assert ThreadPool.assertCurrentThreadPool(
-            ThreadPool.Names.SEARCH,
-            ThreadPool.Names.SEARCH_COORDINATION,
-            ThreadPool.Names.SYSTEM_READ
-        );
-        if (subqueryIndexPattern != null) {
-            /*
-             * TODO subqueries with remote clusters need to be tested.
-             * Subquery index pattern can contain remote clusters, which need to be
-             * resolved against the available clusters. The input executionInfo is built for
-             *  the main index pattern, not for subqueries. Create an index pattern with
-             *  remote clusters for subquery's index pattern, make a copy of the main
-             * EsqlExecutionInfo for this subquery, and reuse the existing API to build
-             * the subqueryIndexExpression.
-             */
-            String indexExpressionToResolve = subqueryIndexExpression(executionInfo, subqueryIndexPattern);
-            if (indexExpressionToResolve.isEmpty()) {
-                listener.onResponse(
-                    result.addSubqueryIndexResolution(subqueryIndexPattern.indexPattern(), IndexResolution.invalid("[none available]"))
-                );
-                return;
-            }
-            // time-series index is not supported in subqueries yet, the grammar does not allow it
-            indexResolver.resolveAsMergedMapping(
-                indexExpressionToResolve,
-                result.fieldNames,
-                null,
-                false,
-                false,
-                preAnalysis.supportsDenseVector(),
-                listener.delegateFailure((l, indexResolution) -> {
-                    l.onResponse(result.addSubqueryIndexResolution(subqueryIndexPattern.indexPattern(), indexResolution));
-                })
-            );
-        } else {
-            // occurs when dealing with local relations (row a = 1)
-            listener.onResponse(result.withIndices(IndexResolution.invalid("[none specified]")));
-        }
-    }
-
-    private String subqueryIndexExpression(EsqlExecutionInfo mainExecutionInfo, IndexPattern subqueryIndexPattern) {
-        // Clone mainInfo (assuming a copy constructor or similar method exists)
-        EsqlExecutionInfo subqueryExecutionInfo = new EsqlExecutionInfo(
-            mainExecutionInfo.skipOnFailurePredicate(),
-            mainExecutionInfo.includeCCSMetadata()
-        );
-        EsqlCCSUtils.initCrossClusterState(indicesExpressionGrouper, verifier.licenseState(), subqueryIndexPattern, subqueryExecutionInfo);
-
-        return EsqlCCSUtils.createIndexExpressionFromAvailableClusters(subqueryExecutionInfo);
     }
 
     private void preAnalyzeLookupIndices(
@@ -842,7 +771,62 @@ public class EsqlSession {
         });
     }
 
+    private void validateClusters(
+        Iterator<IndexPattern> indexPatterns,
+        EsqlExecutionInfo executionInfo,
+        PreAnalysisResult result,
+        ActionListener<PreAnalysisResult> listener
+    ) {
+        if (indexPatterns.hasNext()) {
+            validateClusters(indexPatterns.next(), executionInfo, result, listener.delegateFailureAndWrap((l, r) -> {
+                validateClusters(indexPatterns, executionInfo, r, l);
+            }));
+        } else {
+            listener.onResponse(result);
+        }
+    }
+
+    private void validateClusters(
+        IndexPattern indexPattern,
+        EsqlExecutionInfo executionInfo,
+        PreAnalysisResult result,
+        ActionListener<PreAnalysisResult> listener
+    ) {
+        if (result.indexResolutions.get(indexPattern).isValid()
+            && executionInfo.isCrossClusterSearch()
+            && executionInfo.getRunningClusterAliases().findAny().isEmpty()) {
+            LOGGER.debug("No more clusters to search, ending analysis stage");
+            throw new NoClustersToSearchException();
+        }
+        listener.onResponse(result);
+    }
+
     private void preAnalyzeMainIndices(
+        Iterator<IndexPattern> indexPatterns,
+        PreAnalyzer.PreAnalysis preAnalysis,
+        EsqlExecutionInfo executionInfo,
+        PreAnalysisResult result,
+        QueryBuilder requestFilter,
+        ActionListener<PreAnalysisResult> listener
+    ) {
+        if (indexPatterns.hasNext()) {
+            preAnalyzeMainIndices(
+                indexPatterns.next(),
+                preAnalysis,
+                executionInfo,
+                result,
+                requestFilter,
+                listener.delegateFailureAndWrap((l, r) -> {
+                    preAnalyzeMainIndices(indexPatterns, preAnalysis, executionInfo, r, requestFilter, l);
+                })
+            );
+        } else {
+            listener.onResponse(result);
+        }
+    }
+
+    private void preAnalyzeMainIndices(
+        IndexPattern indexPattern,
         PreAnalyzer.PreAnalysis preAnalysis,
         EsqlExecutionInfo executionInfo,
         PreAnalysisResult result,
@@ -854,18 +838,19 @@ public class EsqlSession {
             ThreadPool.Names.SEARCH_COORDINATION,
             ThreadPool.Names.SYSTEM_READ
         );
-        if (preAnalysis.indexPattern() != null) {
-            if (executionInfo.clusterAliases().isEmpty()) {
+        if (indexPattern != null) {
+            if (executionInfo.clusterAliases(indexPattern).isEmpty()) {
                 // return empty resolution if the expression is pure CCS and resolved no remote clusters (like no-such-cluster*:index)
                 listener.onResponse(
-                    result.withIndices(IndexResolution.valid(new EsIndex(preAnalysis.indexPattern().indexPattern(), Map.of(), Map.of())))
+                    result.withIndices(indexPattern, IndexResolution.valid(new EsIndex(indexPattern.indexPattern(), Map.of(), Map.of())))
                 );
             } else {
+                IndexMode indexMode = preAnalysis.indexes().get(indexPattern);
                 indexResolver.resolveAsMergedMapping(
-                    preAnalysis.indexPattern().indexPattern(),
+                    indexPattern.indexPattern(),
                     result.fieldNames,
                     // Maybe if no indices are returned, retry without index mode and provide a clearer error message.
-                    switch (preAnalysis.indexMode()) {
+                    switch (indexMode) {
                         case IndexMode.TIME_SERIES -> {
                             var indexModeFilter = new TermQueryBuilder(IndexModeFieldMapper.NAME, IndexMode.TIME_SERIES.getName());
                             yield requestFilter != null
@@ -874,18 +859,18 @@ public class EsqlSession {
                         }
                         default -> requestFilter;
                     },
-                    preAnalysis.indexMode() == IndexMode.TIME_SERIES,
+                    indexMode == IndexMode.TIME_SERIES,
                     preAnalysis.supportsAggregateMetricDouble(),
                     preAnalysis.supportsDenseVector(),
                     listener.delegateFailureAndWrap((l, indexResolution) -> {
                         EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, indexResolution.failures());
-                        l.onResponse(result.withIndices(indexResolution));
+                        l.onResponse(result.withIndices(indexPattern, indexResolution));
                     })
                 );
             }
         } else {
             // occurs when dealing with local relations (row a = 1)
-            listener.onResponse(result.withIndices(IndexResolution.invalid("[none specified]")));
+            listener.onResponse(result.withIndices(indexPattern, IndexResolution.invalid("[none specified]")));
         }
     }
 
@@ -901,10 +886,14 @@ public class EsqlSession {
     ) {
         LOGGER.debug("Analyzing the plan ({})", description);
         try {
-            if (result.indices.isValid() || requestFilter != null) {
+            if (result.indexResolutions.values().stream().anyMatch(IndexResolution::isValid) || requestFilter != null) {
                 // We won't run this check with no filter and no valid indices since this may lead to false positive - missing index report
                 // when the resolution result is not valid for a different reason.
-                EsqlCCSUtils.updateExecutionInfoWithClustersWithNoMatchingIndices(executionInfo, result.indices, requestFilter != null);
+                EsqlCCSUtils.updateExecutionInfoWithClustersWithNoMatchingIndices(
+                    executionInfo,
+                    result.indexResolutions.values(),
+                    requestFilter != null
+                );
             }
             LogicalPlan plan = analyzedPlan(parsed, configuration, result, executionInfo);
             LOGGER.debug("Analyzed plan ({}):\n{}", description, plan);
@@ -947,18 +936,16 @@ public class EsqlSession {
         return EstimatesRowSize.estimateRowSize(0, physicalPlan);
     }
 
-    private LogicalPlan analyzedPlan(LogicalPlan parsed, Configuration configuration, PreAnalysisResult r, EsqlExecutionInfo executionInfo)
-        throws Exception {
+    private LogicalPlan analyzedPlan(LogicalPlan parsed, Configuration configuration, PreAnalysisResult r, EsqlExecutionInfo executionInfo) throws Exception {
         handleFieldCapsFailures(configuration.allowPartialResults(), executionInfo, r.indices.failures());
         Analyzer analyzer = new Analyzer(
             new AnalyzerContext(
                 configuration,
                 functionRegistry,
-                r.indices,
+                r.indexResolutions,
                 r.lookupIndices,
                 r.enrichResolution,
-                r.inferenceResolution,
-                r.subqueryIndices
+                r.inferenceResolution
             ),
             verifier
         );
@@ -1003,26 +990,28 @@ public class EsqlSession {
     public record PreAnalysisResult(
         Set<String> fieldNames,
         Set<String> wildcardJoinIndices,
-        IndexResolution indices,
+        Map<IndexPattern, IndexResolution> indexResolutions,
         Map<String, IndexResolution> lookupIndices,
         EnrichResolution enrichResolution,
-        InferenceResolution inferenceResolution,
-        Map<String, IndexResolution> subqueryIndices
+        InferenceResolution inferenceResolution
     ) {
 
         public PreAnalysisResult(Set<String> fieldNames, Set<String> wildcardJoinIndices) {
-            this(fieldNames, wildcardJoinIndices, null, new HashMap<>(), null, InferenceResolution.EMPTY, new HashMap<>());
+            this(fieldNames, wildcardJoinIndices, null, new HashMap<>(), null, InferenceResolution.EMPTY);
         }
 
-        PreAnalysisResult withIndices(IndexResolution indices) {
+        PreAnalysisResult withIndices(IndexPattern indexPattern, IndexResolution indices) {
+            Map<IndexPattern, IndexResolution> newIndexResolutions = this.indexResolutions == null
+                ? new HashMap<>()
+                : new HashMap<>(this.indexResolutions);
+            newIndexResolutions.put(indexPattern, indices);
             return new PreAnalysisResult(
                 fieldNames,
                 wildcardJoinIndices,
-                indices,
+                newIndexResolutions,
                 lookupIndices,
                 enrichResolution,
-                inferenceResolution,
-                subqueryIndices
+                inferenceResolution
             );
         }
 
@@ -1035,11 +1024,10 @@ public class EsqlSession {
             return new PreAnalysisResult(
                 fieldNames,
                 wildcardJoinIndices,
-                indices,
+                indexResolutions,
                 lookupIndices,
                 enrichResolution,
-                inferenceResolution,
-                subqueryIndices
+                inferenceResolution
             );
         }
 
@@ -1047,17 +1035,11 @@ public class EsqlSession {
             return new PreAnalysisResult(
                 fieldNames,
                 wildcardJoinIndices,
-                indices,
+                indexResolutions,
                 lookupIndices,
                 enrichResolution,
-                inferenceResolution,
-                subqueryIndices
+                inferenceResolution
             );
-        }
-
-        PreAnalysisResult addSubqueryIndexResolution(String index, IndexResolution newIndexResolution) {
-            subqueryIndices.put(index, newIndexResolution);
-            return this;
         }
     }
 }

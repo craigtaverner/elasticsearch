@@ -92,13 +92,11 @@ import org.elasticsearch.xpack.esql.plan.logical.MvExpand;
 import org.elasticsearch.xpack.esql.plan.logical.OrderBy;
 import org.elasticsearch.xpack.esql.plan.logical.Project;
 import org.elasticsearch.xpack.esql.plan.logical.Row;
-import org.elasticsearch.xpack.esql.plan.logical.Subquery;
 import org.elasticsearch.xpack.esql.plan.logical.UnionAll;
 import org.elasticsearch.xpack.esql.plan.logical.UnresolvedRelation;
 import org.elasticsearch.xpack.esql.plan.logical.fuse.FuseScoreEval;
 import org.elasticsearch.xpack.esql.plan.logical.inference.Completion;
 import org.elasticsearch.xpack.esql.plan.logical.inference.Rerank;
-import org.elasticsearch.xpack.esql.plan.logical.join.LookupJoin;
 import org.elasticsearch.xpack.esql.plan.logical.local.EsqlProject;
 import org.elasticsearch.xpack.esql.plugin.EsqlPlugin;
 import org.elasticsearch.xpack.esql.session.IndexResolver;
@@ -4603,6 +4601,7 @@ public class AnalyzerTests extends ESTestCase {
     }
 
     public void testSubqueryInFrom() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         LogicalPlan plan = analyze("""
             FROM test, (FROM languages | WHERE language_code > 1)
@@ -4656,13 +4655,16 @@ public class AnalyzerTests extends ESTestCase {
         subqueryEval = as(subqueryProject.child(), Eval.class);
         aliases = subqueryEval.fields(); // nullEvals from test index
         assertEquals(11, aliases.size());
+        /*
         Subquery subquery = as(subqueryEval.child(), Subquery.class);
         Filter subqueryFilter = as(subquery.child(), Filter.class);
         subqueryIndex = as(subqueryFilter.child(), EsRelation.class);
         assertEquals("languages", subqueryIndex.indexPattern());
+         */
     }
 
     public void testMultipleSubqueriesInFrom() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         LogicalPlan plan = analyze("""
             FROM test
@@ -4731,8 +4733,10 @@ public class AnalyzerTests extends ESTestCase {
         subqueryEval = as(subqueryProject.child(), Eval.class);
         aliases = subqueryEval.fields(); // nullEvals from the other legs
         assertEquals(13, aliases.size());
+        /*
         Subquery subquery = as(subqueryEval.child(), Subquery.class);
         rename = as(subquery.child(), EsqlProject.class);
+         */
         List<? extends NamedExpression> renameProjections = rename.projections();
         assertEquals(2, renameProjections.size());
         FieldAttribute language_code = as(renameProjections.get(0), FieldAttribute.class);
@@ -4757,10 +4761,12 @@ public class AnalyzerTests extends ESTestCase {
         subqueryEval = as(subqueryProject.child(), Eval.class);
         aliases = subqueryEval.fields(); // nullEvals from the other legs
         assertEquals(14, aliases.size());
+        /*
         subquery = as(subqueryEval.child(), Subquery.class);
         Aggregate subqueryAggregate = as(subquery.child(), Aggregate.class);
         subqueryIndex = as(subqueryAggregate.child(), EsRelation.class);
         assertEquals("sample_data", subqueryIndex.indexPattern());
+         */
         // leg4
         subqueryLimit = as(unionAll.children().get(3), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
@@ -4769,6 +4775,7 @@ public class AnalyzerTests extends ESTestCase {
         subqueryEval = as(subqueryProject.child(), Eval.class);
         aliases = subqueryEval.fields(); // nullEvals from the other legs
         assertEquals(2, aliases.size());
+        /*
         subquery = as(subqueryEval.child(), Subquery.class);
         LookupJoin lookupJoin = as(subquery.child(), LookupJoin.class);
         subqueryIndex = as(lookupJoin.right(), EsRelation.class);
@@ -4776,6 +4783,7 @@ public class AnalyzerTests extends ESTestCase {
         subqueryEval = as(lookupJoin.left(), Eval.class);
         subqueryIndex = as(subqueryEval.child(), EsRelation.class);
         assertEquals("test", subqueryIndex.indexPattern());
+         */
     }
 
     /**
@@ -4784,6 +4792,7 @@ public class AnalyzerTests extends ESTestCase {
      * subqueries in the future, so leave the check of nested subqueries after logical planner.
       */
     public void testNestedSubqueryInFrom() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         LogicalPlan plan = analyze("""
             FROM test, (FROM languages, (FROM sample_data | STATS count(*)) | WHERE language_code > 10)
@@ -4805,10 +4814,12 @@ public class AnalyzerTests extends ESTestCase {
         subqueryLimit = as(unionAll.children().get(1), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
         subqueryEval = as(subqueryProject.child(), Eval.class);
+        /*
         Subquery subquery = as(subqueryEval.child(), Subquery.class);
         Filter subqueryFilter = as(subquery.child(), Filter.class);
         unionAll = as(subqueryFilter.child(), UnionAll.class);
         assertEquals(2, unionAll.children().size());
+         */
         // leg2
         subqueryLimit = as(unionAll.children().get(0), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
@@ -4819,14 +4830,17 @@ public class AnalyzerTests extends ESTestCase {
         subqueryLimit = as(unionAll.children().get(1), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
         subqueryEval = as(subqueryProject.child(), Eval.class);
+        /*
         subquery = as(subqueryEval.child(), Subquery.class);
         Aggregate subqueryAggregate = as(subquery.child(), Aggregate.class);
         subqueryIndex = as(subqueryAggregate.child(), EsRelation.class);
         assertEquals("sample_data", subqueryIndex.indexPattern());
+         */
     }
 
     // nested fork/subquery is not supported, it passes Analyzer and the query will fail in logical planner verifier
     public void testNestedSubqueryInFromWithMetadata() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         LogicalPlan plan = analyze("""
             FROM test, (FROM languages, (FROM sample_data | STATS count(*)) | WHERE language_code > 10) metadata _index
@@ -4853,10 +4867,12 @@ public class AnalyzerTests extends ESTestCase {
         subqueryLimit = as(unionAll.children().get(1), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
         subqueryEval = as(subqueryProject.child(), Eval.class);
+        /*
         Subquery subquery = as(subqueryEval.child(), Subquery.class);
         Filter subqueryFilter = as(subquery.child(), Filter.class);
         unionAll = as(subqueryFilter.child(), UnionAll.class);
         assertEquals(2, unionAll.children().size());
+         */
         // leg2
         subqueryLimit = as(unionAll.children().get(0), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
@@ -4869,12 +4885,14 @@ public class AnalyzerTests extends ESTestCase {
         subqueryLimit = as(unionAll.children().get(1), Limit.class);
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
         subqueryEval = as(subqueryProject.child(), Eval.class);
+        /*
         subquery = as(subqueryEval.child(), Subquery.class);
         Aggregate subqueryAggregate = as(subquery.child(), Aggregate.class);
         subqueryIndex = as(subqueryAggregate.child(), EsRelation.class);
         assertEquals("sample_data", subqueryIndex.indexPattern());
         output = subqueryIndex.output();
         assertEquals(4, output.size());
+         */
     }
 
     /**
@@ -4883,6 +4901,7 @@ public class AnalyzerTests extends ESTestCase {
      * FORK's postAnalysisPlanVerification will fail.
      */
     public void testMixedDataTypesInSubquery() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         LogicalPlan plan = analyze("""
             FROM test, (FROM test_mixed_types | WHERE languages > 0)
@@ -4910,6 +4929,7 @@ public class AnalyzerTests extends ESTestCase {
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
         castingEval = as(subqueryProject.child(), Eval.class);
         nullEval = as(castingEval.child(), Eval.class);
+        /*
         Subquery subquery = as(nullEval.child(), Subquery.class);
         Filter subqueryFilter = as(subquery.child(), Filter.class);
         GreaterThan greaterThan = as(subqueryFilter.condition(), GreaterThan.class);
@@ -4921,9 +4941,11 @@ public class AnalyzerTests extends ESTestCase {
         assertEquals(INTEGER, literal.dataType());
         subqueryIndex = as(subqueryFilter.child(), EsRelation.class);
         assertEquals("test_mixed_types", subqueryIndex.indexPattern());
+         */
     }
 
     public void testMixedDataTypesWithExplicitCastingInSubquery() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         LogicalPlan plan = analyze("""
             FROM test, (FROM test_mixed_types | WHERE languages > 0)
@@ -4964,6 +4986,7 @@ public class AnalyzerTests extends ESTestCase {
         subqueryProject = as(subqueryLimit.child(), EsqlProject.class);
         castingEval = as(subqueryProject.child(), Eval.class);
         nullEval = as(castingEval.child(), Eval.class);
+        /*
         Subquery subquery = as(nullEval.child(), Subquery.class);
         Filter subqueryFilter = as(subquery.child(), Filter.class);
         GreaterThan greaterThan = as(subqueryFilter.condition(), GreaterThan.class);
@@ -4975,6 +4998,7 @@ public class AnalyzerTests extends ESTestCase {
         assertEquals(INTEGER, literal.dataType());
         subqueryIndex = as(subqueryFilter.child(), EsRelation.class);
         assertEquals("test_mixed_types", subqueryIndex.indexPattern());
+         */
     }
 
     private void verifyNameAndType(String actualName, DataType actualType, String expectedName, DataType expectedType) {

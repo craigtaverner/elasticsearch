@@ -2817,6 +2817,7 @@ public class VerifierTests extends ESTestCase {
      * If there is no common data type for a field in a subquery and the main query, {@code VerificationException} is thrown.
      */
     public void testMixedDataTypesInSubquery() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
         assertThat(
             error("""
