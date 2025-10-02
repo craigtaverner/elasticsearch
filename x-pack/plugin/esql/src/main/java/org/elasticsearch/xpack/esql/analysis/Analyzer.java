@@ -104,7 +104,6 @@ import org.elasticsearch.xpack.esql.index.IndexResolution;
 import org.elasticsearch.xpack.esql.inference.ResolvedInference;
 import org.elasticsearch.xpack.esql.optimizer.rules.logical.SubstituteSurrogateExpressions;
 import org.elasticsearch.xpack.esql.parser.ParsingException;
-import org.elasticsearch.xpack.esql.plan.IndexPattern;
 import org.elasticsearch.xpack.esql.plan.logical.Aggregate;
 import org.elasticsearch.xpack.esql.plan.logical.Drop;
 import org.elasticsearch.xpack.esql.plan.logical.Enrich;
@@ -271,20 +270,7 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                         plan.telemetryLabel()
                     );
             }
-            IndexPattern table = plan.indexPattern();
-            if (indexResolution.matches(table.indexPattern()) == false) {
-                // TODO: fix this (and tests), or drop check (seems SQL-inherited, where's also defective)
-                new UnresolvedRelation(
-                    plan.source(),
-                    plan.indexPattern(),
-                    plan.frozen(),
-                    plan.metadataFields(),
-                    plan.indexMode(),
-                    "invalid [" + table + "] resolution to [" + indexResolution + "]",
-                    plan.telemetryLabel()
-                );
-            }
-
+            assert indexResolution.matches(plan.indexPattern().indexPattern()) : "Expected index resolution to match the index pattern";
             EsIndex esIndex = indexResolution.get();
 
             var attributes = mappingAsAttributes(plan.source(), esIndex.mapping());

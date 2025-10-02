@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.elasticsearch.xpack.core.enrich.EnrichPolicy.GEO_MATCH_TYPE;
 import static org.elasticsearch.xpack.core.enrich.EnrichPolicy.MATCH_TYPE;
@@ -107,7 +109,7 @@ public final class AnalyzerTestUtils {
         Map<IndexPattern, IndexResolution> more
     ) {
         Map<IndexPattern, IndexResolution> combined = new HashMap<>(indexResolutions);
-        indexResolutions.putAll(more);
+        combined.putAll(more);
         return combined;
     }
 
@@ -134,7 +136,7 @@ public final class AnalyzerTestUtils {
     }
 
     public static LogicalPlan analyze(String query, String mapping) {
-        return analyze(query, "test", mapping);
+        return analyze(query, indexFromQuery(query), mapping);
     }
 
     public static LogicalPlan analyze(String query, String index, String mapping) {
@@ -150,9 +152,24 @@ public final class AnalyzerTestUtils {
         return analyzed;
     }
 
+    private static final Pattern indexFromPattern = Pattern.compile("(?i)FROM\\s+([\\w-]+)");
+
+    private static String indexFromQuery(String query) {
+        // Extract the index name from the FROM clause of the query using regexp
+        Matcher matcher = indexFromPattern.matcher(query);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        throw new IllegalArgumentException("No index found in query: " + query);
+    }
+
     public static LogicalPlan analyze(String query, String mapping, QueryParams params) {
+        return analyze(query, indexFromQuery(query), mapping, params);
+    }
+
+    public static LogicalPlan analyze(String query, String index, String mapping, QueryParams params) {
         var plan = new EsqlParser().createStatement(query, params);
-        var indexResolutions = Map.of(new IndexPattern(Source.EMPTY, "test"), loadMapping(mapping, "test"));
+        var indexResolutions = Map.of(new IndexPattern(Source.EMPTY, index), loadMapping(mapping, index));
         var analyzer = analyzer(indexResolutions, TEST_VERIFIER, configuration(query));
         return analyzer.analyze(plan);
     }
