@@ -838,39 +838,34 @@ public class EsqlSession {
             ThreadPool.Names.SEARCH_COORDINATION,
             ThreadPool.Names.SYSTEM_READ
         );
-        if (indexPattern != null) {
-            if (executionInfo.clusterAliases(indexPattern).isEmpty()) {
-                // return empty resolution if the expression is pure CCS and resolved no remote clusters (like no-such-cluster*:index)
-                listener.onResponse(
-                    result.withIndices(indexPattern, IndexResolution.valid(new EsIndex(indexPattern.indexPattern(), Map.of(), Map.of())))
-                );
-            } else {
-                IndexMode indexMode = preAnalysis.indexes().get(indexPattern);
-                indexResolver.resolveAsMergedMapping(
-                    indexPattern.indexPattern(),
-                    result.fieldNames,
-                    // Maybe if no indices are returned, retry without index mode and provide a clearer error message.
-                    switch (indexMode) {
-                        case IndexMode.TIME_SERIES -> {
-                            var indexModeFilter = new TermQueryBuilder(IndexModeFieldMapper.NAME, IndexMode.TIME_SERIES.getName());
-                            yield requestFilter != null
-                                ? new BoolQueryBuilder().filter(requestFilter).filter(indexModeFilter)
-                                : indexModeFilter;
-                        }
-                        default -> requestFilter;
-                    },
-                    indexMode == IndexMode.TIME_SERIES,
-                    preAnalysis.supportsAggregateMetricDouble(),
-                    preAnalysis.supportsDenseVector(),
-                    listener.delegateFailureAndWrap((l, indexResolution) -> {
-                        EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, indexResolution.failures());
-                        l.onResponse(result.withIndices(indexPattern, indexResolution));
-                    })
-                );
-            }
+        if (executionInfo.clusterAliases(indexPattern).isEmpty()) {
+            // return empty resolution if the expression is pure CCS and resolved no remote clusters (like no-such-cluster*:index)
+            listener.onResponse(
+                result.withIndices(indexPattern, IndexResolution.valid(new EsIndex(indexPattern.indexPattern(), Map.of(), Map.of())))
+            );
         } else {
-            // occurs when dealing with local relations (row a = 1)
-            listener.onResponse(result.withIndices(indexPattern, IndexResolution.invalid("[none specified]")));
+            IndexMode indexMode = preAnalysis.indexes().get(indexPattern);
+            indexResolver.resolveAsMergedMapping(
+                indexPattern.indexPattern(),
+                result.fieldNames,
+                // Maybe if no indices are returned, retry without index mode and provide a clearer error message.
+                switch (indexMode) {
+                    case IndexMode.TIME_SERIES -> {
+                        var indexModeFilter = new TermQueryBuilder(IndexModeFieldMapper.NAME, IndexMode.TIME_SERIES.getName());
+                        yield requestFilter != null
+                            ? new BoolQueryBuilder().filter(requestFilter).filter(indexModeFilter)
+                            : indexModeFilter;
+                    }
+                    default -> requestFilter;
+                },
+                indexMode == IndexMode.TIME_SERIES,
+                preAnalysis.supportsAggregateMetricDouble(),
+                preAnalysis.supportsDenseVector(),
+                listener.delegateFailureAndWrap((l, indexResolution) -> {
+                    EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, indexResolution.failures());
+                    l.onResponse(result.withIndices(indexPattern, indexResolution));
+                })
+            );
         }
     }
 
@@ -997,13 +992,11 @@ public class EsqlSession {
     ) {
 
         public PreAnalysisResult(Set<String> fieldNames, Set<String> wildcardJoinIndices) {
-            this(fieldNames, wildcardJoinIndices, null, new HashMap<>(), null, InferenceResolution.EMPTY);
+            this(fieldNames, wildcardJoinIndices, Map.of(), new HashMap<>(), null, InferenceResolution.EMPTY);
         }
 
         PreAnalysisResult withIndices(IndexPattern indexPattern, IndexResolution indices) {
-            Map<IndexPattern, IndexResolution> newIndexResolutions = this.indexResolutions == null
-                ? new HashMap<>()
-                : new HashMap<>(this.indexResolutions);
+            Map<IndexPattern, IndexResolution> newIndexResolutions = new HashMap<>(this.indexResolutions);
             newIndexResolutions.put(indexPattern, indices);
             return new PreAnalysisResult(
                 fieldNames,
