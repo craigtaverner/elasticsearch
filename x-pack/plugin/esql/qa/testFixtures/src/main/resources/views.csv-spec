@@ -116,7 +116,7 @@ FROM address_countries, airports_countries
 ignoreOrder:true
 
 count:long | country:keyword
-130        | United States
+129        | United States
 1          | United States
 ;
 
