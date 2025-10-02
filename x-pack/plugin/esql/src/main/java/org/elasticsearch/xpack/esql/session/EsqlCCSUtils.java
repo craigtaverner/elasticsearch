@@ -163,7 +163,7 @@ public class EsqlCCSUtils {
             EsqlExecutionInfo.Cluster cluster = executionInfo.getCluster(clusterAlias);
             // Exclude clusters which are either skipped or have no indices matching wildcard, or filtered out.
             if (cluster.getStatus() != Cluster.Status.SKIPPED && cluster.getStatus() != Cluster.Status.SUCCESSFUL) {
-                if (cluster.getIndexExpression().contains(indexPattern)) {
+                if (indexPattern.equals("*") || cluster.getIndexExpression().contains(indexPattern)) {
                     if (sb.isEmpty() == false) {
                         sb.append(',');
                     }

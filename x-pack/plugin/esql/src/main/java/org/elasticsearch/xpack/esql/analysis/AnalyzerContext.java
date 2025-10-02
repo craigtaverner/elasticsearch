@@ -7,6 +7,7 @@
 
 package org.elasticsearch.xpack.esql.analysis;
 
+import org.elasticsearch.xpack.esql.core.tree.Source;
 import org.elasticsearch.xpack.esql.expression.function.EsqlFunctionRegistry;
 import org.elasticsearch.xpack.esql.index.IndexResolution;
 import org.elasticsearch.xpack.esql.inference.InferenceResolution;
@@ -33,5 +34,22 @@ public record AnalyzerContext(
         InferenceResolution inferenceResolution
     ) {
         this(configuration, functionRegistry, indexResolution, Map.of(), enrichResolution, inferenceResolution);
+    }
+
+    public AnalyzerContext(
+        Configuration configuration,
+        EsqlFunctionRegistry functionRegistry,
+        IndexResolution indexResolution,
+        EnrichResolution enrichResolution,
+        InferenceResolution inferenceResolution
+    ) {
+        this(
+            configuration,
+            functionRegistry,
+            Map.of(new IndexPattern(Source.EMPTY, indexResolution.get().name()), indexResolution),
+            Map.of(),
+            enrichResolution,
+            inferenceResolution
+        );
     }
 }

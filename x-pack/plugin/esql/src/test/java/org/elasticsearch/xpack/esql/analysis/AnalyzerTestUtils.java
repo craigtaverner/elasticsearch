@@ -12,6 +12,7 @@ import org.elasticsearch.inference.TaskType;
 import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.xpack.core.enrich.EnrichPolicy;
 import org.elasticsearch.xpack.esql.EsqlTestUtils;
+import org.elasticsearch.xpack.esql.core.tree.Source;
 import org.elasticsearch.xpack.esql.core.type.EsField;
 import org.elasticsearch.xpack.esql.core.type.InvalidMappedField;
 import org.elasticsearch.xpack.esql.enrich.ResolvedEnrichPolicy;
@@ -22,12 +23,14 @@ import org.elasticsearch.xpack.esql.inference.InferenceResolution;
 import org.elasticsearch.xpack.esql.inference.ResolvedInference;
 import org.elasticsearch.xpack.esql.parser.EsqlParser;
 import org.elasticsearch.xpack.esql.parser.QueryParams;
+import org.elasticsearch.xpack.esql.plan.IndexPattern;
 import org.elasticsearch.xpack.esql.plan.logical.Enrich;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.session.Configuration;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +50,7 @@ public final class AnalyzerTestUtils {
     private AnalyzerTestUtils() {}
 
     public static Analyzer defaultAnalyzer() {
-        return analyzer(analyzerDefaultMapping());
+        return analyzer(analyzerDefaultMapping().values().iterator().next());
     }
 
     public static Analyzer expandedDefaultAnalyzer() {
@@ -76,11 +79,11 @@ public final class AnalyzerTestUtils {
         EnrichResolution enrichResolution,
         Verifier verifier
     ) {
-        return analyzer(indexResolution, lookupResolution, enrichResolution, verifier, TEST_CFG);
+        return analyzer(indexResolutions(indexResolution), lookupResolution, enrichResolution, verifier, TEST_CFG);
     }
 
     public static Analyzer analyzer(
-        IndexResolution indexResolution,
+        Map<IndexPattern, IndexResolution> indexResolutions,
         Map<String, IndexResolution> lookupResolution,
         EnrichResolution enrichResolution,
         Verifier verifier,
@@ -90,18 +93,26 @@ public final class AnalyzerTestUtils {
             new AnalyzerContext(
                 config,
                 new EsqlFunctionRegistry(),
-                indexResolution,
+                mergeIndexResolutions(indexResolutions, defaultSubqueryResolution()),
                 lookupResolution,
                 enrichResolution,
-                defaultInferenceResolution(),
-                defaultSubqueryResolution()
+                defaultInferenceResolution()
             ),
             verifier
         );
     }
 
-    public static Analyzer analyzer(IndexResolution indexResolution, Verifier verifier, Configuration config) {
-        return analyzer(indexResolution, defaultLookupResolution(), defaultEnrichResolution(), verifier, config);
+    private static Map<IndexPattern, IndexResolution> mergeIndexResolutions(
+        Map<IndexPattern, IndexResolution> indexResolutions,
+        Map<IndexPattern, IndexResolution> more
+    ) {
+        Map<IndexPattern, IndexResolution> combined = new HashMap<>(indexResolutions);
+        indexResolutions.putAll(more);
+        return combined;
+    }
+
+    public static Analyzer analyzer(Map<IndexPattern, IndexResolution> indexResolutions, Verifier verifier, Configuration config) {
+        return analyzer(indexResolutions, defaultLookupResolution(), defaultEnrichResolution(), verifier, config);
     }
 
     public static Analyzer analyzer(Verifier verifier) {
@@ -127,7 +138,8 @@ public final class AnalyzerTestUtils {
     }
 
     public static LogicalPlan analyze(String query, String index, String mapping) {
-        return analyze(query, analyzer(loadMapping(mapping, index), TEST_VERIFIER, configuration(query)));
+        var indexResolutions = Map.of(new IndexPattern(Source.EMPTY, index), loadMapping(mapping, index));
+        return analyze(query, analyzer(indexResolutions, TEST_VERIFIER, configuration(query)));
     }
 
     public static LogicalPlan analyze(String query, Analyzer analyzer) {
@@ -140,7 +152,8 @@ public final class AnalyzerTestUtils {
 
     public static LogicalPlan analyze(String query, String mapping, QueryParams params) {
         var plan = new EsqlParser().createStatement(query, params);
-        var analyzer = analyzer(loadMapping(mapping, "test"), TEST_VERIFIER, configuration(query));
+        var indexResolutions = Map.of(new IndexPattern(Source.EMPTY, "test"), loadMapping(mapping, "test"));
+        var analyzer = analyzer(indexResolutions, TEST_VERIFIER, configuration(query));
         return analyzer.analyze(plan);
     }
 
@@ -154,8 +167,24 @@ public final class AnalyzerTestUtils {
         return IndexResolution.valid(test);
     }
 
-    public static IndexResolution analyzerDefaultMapping() {
-        return loadMapping("mapping-basic.json", "test");
+    public static Map<IndexPattern, IndexResolution> analyzerDefaultMapping() {
+        return Map.of(new IndexPattern(Source.EMPTY, "test"), loadMapping("mapping-basic.json", "test"));
+    }
+
+    public static Map<IndexPattern, IndexResolution> indexResolutions(EsIndex... indexes) {
+        Map<IndexPattern, IndexResolution> map = new HashMap<>();
+        for (EsIndex index : indexes) {
+            map.put(new IndexPattern(Source.EMPTY, index.name()), IndexResolution.valid(index));
+        }
+        return map;
+    }
+
+    public static Map<IndexPattern, IndexResolution> indexResolutions(IndexResolution... indexes) {
+        Map<IndexPattern, IndexResolution> map = new HashMap<>();
+        for (IndexResolution index : indexes) {
+            map.put(new IndexPattern(Source.EMPTY, index.get().name()), index);
+        }
+        return map;
     }
 
     public static IndexResolution expandedDefaultIndexResolution() {
@@ -223,13 +252,13 @@ public final class AnalyzerTestUtils {
             .build();
     }
 
-    public static Map<String, IndexResolution> defaultSubqueryResolution() {
+    public static Map<IndexPattern, IndexResolution> defaultSubqueryResolution() {
         return Map.of(
-            "languages",
+            new IndexPattern(Source.EMPTY, "languages"),
             loadMapping("mapping-languages.json", "languages"),
-            "sample_data",
+            new IndexPattern(Source.EMPTY, "sample_data"),
             loadMapping("mapping-sample_data.json", "sample_data"),
-            "test_mixed_types",
+            new IndexPattern(Source.EMPTY, "test_mixed_types"),
             loadMapping("mapping-default-incompatible.json", "test_mixed_types")
         );
     }
