@@ -26,6 +26,7 @@ import org.elasticsearch.xpack.esql.parser.QueryParams;
 import org.elasticsearch.xpack.esql.plan.IndexPattern;
 import org.elasticsearch.xpack.esql.plan.logical.Enrich;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
+import org.elasticsearch.xpack.esql.plan.logical.UnresolvedRelation;
 import org.elasticsearch.xpack.esql.session.Configuration;
 
 import java.util.ArrayList;
@@ -59,8 +60,14 @@ public final class AnalyzerTestUtils {
         return analyzer(expandedDefaultIndexResolution());
     }
 
+    /** Simplest analyzer with a single index, which must be valid */
     public static Analyzer analyzer(IndexResolution indexResolution) {
         return analyzer(indexResolution, TEST_VERIFIER);
+    }
+
+    /** Simple analyzer with multiple indexes, which may also be invalid */
+    public static Analyzer analyzer(Map<IndexPattern, IndexResolution> indexResolutions) {
+        return analyzer(indexResolutions, defaultLookupResolution(), defaultEnrichResolution(), TEST_VERIFIER, TEST_CFG);
     }
 
     public static Analyzer analyzer(IndexResolution indexResolution, Map<String, IndexResolution> lookupResolution) {
@@ -140,7 +147,9 @@ public final class AnalyzerTestUtils {
     }
 
     public static LogicalPlan analyze(String query, String index, String mapping) {
-        var indexResolutions = Map.of(new IndexPattern(Source.EMPTY, index), loadMapping(mapping, index));
+        Map<IndexPattern, IndexResolution> indexResolutions = index == null
+            ? Map.of()
+            : Map.of(new IndexPattern(Source.EMPTY, index), loadMapping(mapping, index));
         return analyze(query, analyzer(indexResolutions, TEST_VERIFIER, configuration(query)));
     }
 
@@ -160,7 +169,7 @@ public final class AnalyzerTestUtils {
         if (matcher.find()) {
             return matcher.group(1);
         }
-        throw new IllegalArgumentException("No index found in query: " + query);
+        return null;
     }
 
     public static LogicalPlan analyze(String query, String mapping, QueryParams params) {
@@ -172,6 +181,18 @@ public final class AnalyzerTestUtils {
         var indexResolutions = Map.of(new IndexPattern(Source.EMPTY, index), loadMapping(mapping, index));
         var analyzer = analyzer(indexResolutions, TEST_VERIFIER, configuration(query));
         return analyzer.analyze(plan);
+    }
+
+    public static UnresolvedRelation unresolvedRelation(String index) {
+        return new UnresolvedRelation(
+            Source.EMPTY,
+            new IndexPattern(Source.EMPTY, index),
+            false,
+            List.of(),
+            IndexMode.STANDARD,
+            null,
+            "FROM"
+        );
     }
 
     public static IndexResolution loadMapping(String resource, String indexName, IndexMode indexMode) {
@@ -356,7 +377,7 @@ public final class AnalyzerTestUtils {
         EsField dateDateNanosField = new InvalidMappedField(dateDateNanos, typesToIndices1);
         EsField dateDateNanosLongField = new InvalidMappedField(dateDateNanosLong, typesToIndices2);
         EsIndex index = new EsIndex(
-            "test*",
+            "index*",
             Map.of(dateDateNanos, dateDateNanosField, dateDateNanosLong, dateDateNanosLongField),
             Map.of("index1", IndexMode.STANDARD, "index2", IndexMode.STANDARD, "index3", IndexMode.STANDARD)
         );
