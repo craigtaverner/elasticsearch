@@ -1012,6 +1012,7 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     public void testPushDownSimpleFilterPastUnionAll() {
         // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
+        assumeTrue("Disabled until subquery support comes back", false);
         var plan = planSubquery("""
             FROM test, (FROM test1 | WHERE languages > 0), (FROM languages | WHERE language_code > 0)
             | WHERE emp_no > 10000
@@ -1058,7 +1059,9 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     }
 
     public void testPushDownConjunctiveFilterPastUnionAll() {
+        // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
+        assumeTrue("Disabled until subquery support comes back", false);
         var plan = planSubquery("""
             FROM test, (FROM test1 | WHERE languages > 0), (FROM languages | WHERE language_code > 0)
             | WHERE emp_no > 10000 and salary > 50000
@@ -1117,6 +1120,7 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     public void testPushDownDisjunctiveFilterPastUnionAll() {
         // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
+        assumeTrue("Disabled until subquery support comes back", false);
         var plan = planSubquery("""
             FROM test, (FROM test1 | WHERE languages > 0), (FROM languages | WHERE language_code > 0)
             | WHERE emp_no > 10000 or salary > 50000
@@ -1175,6 +1179,7 @@ public class PushDownAndCombineFiltersTests extends AbstractLogicalPlanOptimizer
     public void testPushDownAndCombineFilterPastUnionAll() {
         // TODO: Replace with a VIEWS example
         assumeTrue("Requires subquery in FROM command support", EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND.isEnabled());
+        assumeTrue("Disabled until subquery support comes back", false);
         var plan = planSubquery("""
             FROM test, (FROM test1 | where salary < 100000), (FROM languages  | WHERE language_code > 0)
             | WHERE emp_no > 10000 and salary > 50000
