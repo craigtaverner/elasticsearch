@@ -206,7 +206,13 @@ public final class AnalyzerTestUtils {
     }
 
     public static Map<IndexPattern, IndexResolution> analyzerDefaultMapping() {
-        return Map.of(new IndexPattern(Source.EMPTY, "test"), loadMapping("mapping-basic.json", "test"));
+        // Most tests use either "test" or "employees" as the index name, but for the same mapping
+        return Map.of(
+            new IndexPattern(Source.EMPTY, "test"),
+            loadMapping("mapping-basic.json", "test"),
+            new IndexPattern(Source.EMPTY, "employees"),
+            loadMapping("mapping-basic.json", "employees")
+        );
     }
 
     public static Map<IndexPattern, IndexResolution> indexResolutions(EsIndex... indexes) {

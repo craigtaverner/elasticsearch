@@ -31,6 +31,7 @@ import static org.elasticsearch.xpack.esql.EsqlTestUtils.emptyInferenceResolutio
 import static org.elasticsearch.xpack.esql.EsqlTestUtils.loadMapping;
 import static org.elasticsearch.xpack.esql.EsqlTestUtils.unboundLogicalOptimizerContext;
 import static org.elasticsearch.xpack.esql.EsqlTestUtils.withDefaultLimitWarning;
+import static org.elasticsearch.xpack.esql.analysis.AnalyzerTestUtils.defaultAnalyzer;
 import static org.elasticsearch.xpack.esql.analysis.AnalyzerTestUtils.defaultInferenceResolution;
 import static org.elasticsearch.xpack.esql.analysis.AnalyzerTestUtils.defaultLookupResolution;
 import static org.elasticsearch.xpack.esql.analysis.AnalyzerTestUtils.indexResolutions;
@@ -78,14 +79,15 @@ public abstract class AbstractLogicalPlanOptimizerTests extends ESTestCase {
         enrichResolution = new EnrichResolution();
         AnalyzerTestUtils.loadEnrichPolicyResolution(enrichResolution, "languages_idx", "id", "languages_idx", "mapping-languages.json");
 
-        // Most tests used data from the test index, so we load it here, and use it in the plan() function.
+        // Most tests use either "test" or "employees" as the index name, but for the same mapping
         mapping = loadMapping("mapping-basic.json");
         EsIndex test = new EsIndex("test", mapping, Map.of("test", IndexMode.STANDARD));
+        EsIndex employees = new EsIndex("employees", mapping, Map.of("employees", IndexMode.STANDARD));
         analyzer = new Analyzer(
             new AnalyzerContext(
                 EsqlTestUtils.TEST_CFG,
                 new EsqlFunctionRegistry(),
-                indexResolutions(test),
+                indexResolutions(test, employees),
                 defaultLookupResolution(),
                 enrichResolution,
                 emptyInferenceResolution()
@@ -93,7 +95,7 @@ public abstract class AbstractLogicalPlanOptimizerTests extends ESTestCase {
             TEST_VERIFIER
         );
 
-        // Some tests use data from the airports index, so we load it here, and use it in the plan_airports() function.
+        // Some tests use data from the airports index, so we load it here, and use it in the planAirports() function.
         mappingAirports = loadMapping("mapping-airports.json");
         EsIndex airports = new EsIndex("airports", mappingAirports, Map.of("airports", IndexMode.STANDARD));
         analyzerAirports = new Analyzer(
@@ -211,25 +213,19 @@ public abstract class AbstractLogicalPlanOptimizerTests extends ESTestCase {
 
     protected LogicalPlan plan(String query, LogicalPlanOptimizer optimizer) {
         var analyzed = analyzer.analyze(parser.createStatement(query));
-        // System.out.println(analyzed);
         var optimized = optimizer.optimize(analyzed);
-        // System.out.println(optimized);
         return optimized;
     }
 
     protected LogicalPlan planAirports(String query) {
         var analyzed = analyzerAirports.analyze(parser.createStatement(query));
-        // System.out.println(analyzed);
         var optimized = logicalOptimizer.optimize(analyzed);
-        // System.out.println(optimized);
         return optimized;
     }
 
     protected LogicalPlan planExtra(String query) {
         var analyzed = analyzerExtra.analyze(parser.createStatement(query));
-        // System.out.println(analyzed);
         var optimized = logicalOptimizer.optimize(analyzed);
-        // System.out.println(optimized);
         return optimized;
     }
 
@@ -247,7 +243,7 @@ public abstract class AbstractLogicalPlanOptimizerTests extends ESTestCase {
     }
 
     protected LogicalPlan planSubquery(String query) {
-        var analyzed = subqueryAnalyzer.analyze(parser.createStatement(query, EsqlTestUtils.TEST_CFG));
+        var analyzed = subqueryAnalyzer.analyze(parser.createStatement(query));
         return logicalOptimizer.optimize(analyzed);
     }
 
