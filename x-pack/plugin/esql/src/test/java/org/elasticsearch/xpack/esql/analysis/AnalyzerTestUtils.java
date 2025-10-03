@@ -53,7 +53,7 @@ public final class AnalyzerTestUtils {
     private AnalyzerTestUtils() {}
 
     public static Analyzer defaultAnalyzer() {
-        return analyzer(analyzerDefaultMapping().values().iterator().next());
+        return analyzer(analyzerDefaultMapping());
     }
 
     public static Analyzer expandedDefaultAnalyzer() {
@@ -125,17 +125,11 @@ public final class AnalyzerTestUtils {
     }
 
     public static Analyzer analyzer(Verifier verifier) {
-        return new Analyzer(
-            new AnalyzerContext(
-                EsqlTestUtils.TEST_CFG,
-                new EsqlFunctionRegistry(),
-                analyzerDefaultMapping(),
-                defaultLookupResolution(),
-                defaultEnrichResolution(),
-                defaultInferenceResolution()
-            ),
-            verifier
-        );
+        return analyzer(analyzerDefaultMapping(), defaultLookupResolution(), defaultEnrichResolution(), verifier, EsqlTestUtils.TEST_CFG);
+    }
+
+    public static Analyzer analyzer(Map<IndexPattern, IndexResolution> indexResolutions, Verifier verifier) {
+        return analyzer(indexResolutions, defaultLookupResolution(), defaultEnrichResolution(), verifier, EsqlTestUtils.TEST_CFG);
     }
 
     public static LogicalPlan analyze(String query) {
