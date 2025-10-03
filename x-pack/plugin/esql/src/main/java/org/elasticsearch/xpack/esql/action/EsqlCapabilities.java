@@ -1087,6 +1087,11 @@ public class EsqlCapabilities {
         VIEWS_V1(Build.current().isSnapshot()),
 
         /**
+         * Views with branching (requires FORK).
+         */
+        VIEWS_WITH_BRANCHING(VIEWS_V1.isEnabled()),
+
+        /**
          * Support non-correlated subqueries in the FROM clause.
          */
         SUBQUERY_IN_FROM_COMMAND(Build.current().isSnapshot()),

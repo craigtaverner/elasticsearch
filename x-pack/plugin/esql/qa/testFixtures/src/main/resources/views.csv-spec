@@ -85,6 +85,7 @@ count:long | country:keyword
 
 countriesAirportsAddresses
 required_capability: views_v1
+required_capability: views_with_branching
 
 FROM address_countries, airports_countries
 | STATS count=SUM(count) BY country
@@ -109,6 +110,7 @@ count:long | country:keyword
 
 countriesAirportsAddressesUS
 required_capability: views_v1
+required_capability: views_with_branching
 
 FROM address_countries, airports_countries
 | WHERE country == "United States"
