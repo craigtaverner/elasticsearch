@@ -208,7 +208,7 @@ public class EsqlSession {
         var logicalPlanOptimizer = new LogicalPlanOptimizer(new LogicalOptimizerContext(configuration, foldContext));
         var physicalPlanOptimizer = new PhysicalPlanOptimizer(new PhysicalOptimizerContext(configuration));
 
-        LogicalPlan plan = viewService.replaceViews(parse(request.query(), request.params()).plan(), planTelemetry, configuration);
+        LogicalPlan plan = viewService.replaceViews(parse(request.query(), request.params()).plan(), planTelemetry);
         if (plan instanceof Explain explain) {
             explainMode = true;
             plan = explain.query();
@@ -838,7 +838,8 @@ public class EsqlSession {
             ThreadPool.Names.SEARCH_COORDINATION,
             ThreadPool.Names.SYSTEM_READ
         );
-        if (executionInfo.clusterAliases(indexPattern).isEmpty()) {
+        // TODO: Make this specific to the index pattern
+        if (executionInfo.clusterAliases().isEmpty()) {
             // return empty resolution if the expression is pure CCS and resolved no remote clusters (like no-such-cluster*:index)
             listener.onResponse(
                 result.withIndices(indexPattern, IndexResolution.valid(new EsIndex(indexPattern.indexPattern(), Map.of(), Map.of())))
@@ -931,8 +932,9 @@ public class EsqlSession {
         return EstimatesRowSize.estimateRowSize(0, physicalPlan);
     }
 
-    private LogicalPlan analyzedPlan(LogicalPlan parsed, Configuration configuration, PreAnalysisResult r, EsqlExecutionInfo executionInfo) throws Exception {
-        handleFieldCapsFailures(configuration.allowPartialResults(), executionInfo, r.indices.failures());
+    private LogicalPlan analyzedPlan(LogicalPlan parsed, Configuration configuration, PreAnalysisResult r, EsqlExecutionInfo executionInfo)
+        throws Exception {
+        handleFieldCapsFailures(configuration.allowPartialResults(), executionInfo, r.indexResolutions);
         Analyzer analyzer = new Analyzer(
             new AnalyzerContext(
                 configuration,

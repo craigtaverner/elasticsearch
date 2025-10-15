@@ -19,7 +19,6 @@ import org.elasticsearch.xpack.esql.plan.IndexPattern;
 import org.elasticsearch.xpack.esql.plan.logical.LogicalPlan;
 import org.elasticsearch.xpack.esql.plan.logical.UnionAll;
 import org.elasticsearch.xpack.esql.plan.logical.UnresolvedRelation;
-import org.elasticsearch.xpack.esql.session.Configuration;
 import org.elasticsearch.xpack.esql.telemetry.PlanTelemetry;
 
 import java.util.ArrayList;
@@ -56,7 +55,7 @@ public abstract class ViewService {
 
     protected abstract ViewMetadata getMetadata();
 
-    public LogicalPlan replaceViews(LogicalPlan plan, PlanTelemetry telemetry, Configuration configuration) {
+    public LogicalPlan replaceViews(LogicalPlan plan, PlanTelemetry telemetry) {
         ViewMetadata views = getMetadata();
 
         List<String> seen = new ArrayList<>();
@@ -77,7 +76,7 @@ public abstract class ViewService {
                             throw viewError("The maximum allowed view depth of " + config.maxViewDepth + " has been exceeded: ", seen);
                         }
                         View view = views.views().get(name);
-                        subqueries.add(resolve(view, telemetry, configuration));
+                        subqueries.add(resolve(view, telemetry));
                     } else {
                         indexes.add(name);
                     }
@@ -112,14 +111,14 @@ public abstract class ViewService {
         }
     }
 
-    private static LogicalPlan resolve(View view, PlanTelemetry telemetry, Configuration configuration) {
+    private static LogicalPlan resolve(View view, PlanTelemetry telemetry) {
         // TODO don't reparse every time. Store parsed? Or cache parsing? dunno
         // this will make super-wrong Source. the _source should be the view.
         // if there's a `filter` it applies "under" the view. that's weird. right?
         // security to create this
         // telemetry
         // don't allow circular references
-        return new EsqlParser().createStatement(view.query(), new QueryParams(), telemetry, configuration);
+        return new EsqlParser().createStatement(view.query(), new QueryParams(), telemetry);
     }
 
     private VerificationException viewError(String type, List<String> seen) {
@@ -138,9 +137,9 @@ public abstract class ViewService {
     /**
      * Adds or modifies a view by name. This method can only be invoked on the master node.
      */
-    public void put(String name, View view, ActionListener<Void> callback, Configuration configuration) {
+    public void put(String name, View view, ActionListener<Void> callback) {
         assertMasterNode();
-        validatePutView(name, view, configuration);
+        validatePutView(name, view);
         updateViewMetadata(callback, current -> {
             Map<String, View> original = getMetadata().views();
             Map<String, View> updated = new HashMap<>(original);
@@ -149,7 +148,7 @@ public abstract class ViewService {
         });
     }
 
-    private void validatePutView(String name, View view, Configuration configuration) {
+    private void validatePutView(String name, View view) {
         if (Strings.isNullOrEmpty(name)) {
             throw new IllegalArgumentException("name is missing or empty");
         }
@@ -167,7 +166,7 @@ public abstract class ViewService {
         if (getMetadata().views().containsKey(name) == false && getMetadata().views().size() >= config.maxViews) {
             throw new IllegalArgumentException("cannot add view, the maximum number of views is reached: " + config.maxViews);
         }
-        new EsqlParser().createStatement(view.query(), new QueryParams(), new PlanTelemetry(functionRegistry), configuration);
+        new EsqlParser().createStatement(view.query(), new QueryParams(), new PlanTelemetry(functionRegistry));
         // TODO should we validate this in the transport action and make it async? like plan like a query
         // TODO postgresql does.
     }

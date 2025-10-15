@@ -576,13 +576,13 @@ public class CsvTests extends ESTestCase {
         for (var viewConfig : VIEW_CONFIGS) {
             try {
                 String viewQuery = loadViewQuery(viewConfig.viewName(), viewConfig.viewFileName(), LOGGER);
-                viewService.put(viewConfig.viewName(), new View(viewQuery), ActionListener.noop(), configuration);
+                viewService.put(viewConfig.viewName(), new View(viewQuery), ActionListener.noop());
             } catch (IOException e) {
                 logger.error("Failed to load view '" + viewConfig + "': " + e.getMessage());
                 throw new RuntimeException(e);
             }
         }
-        return viewService.replaceViews(parsed, new PlanTelemetry(functionRegistry), configuration);
+        return viewService.replaceViews(parsed, new PlanTelemetry(functionRegistry));
     }
 
     private Map<IndexPattern, CsvTestsDataLoader.MultiIndexTestDataset> testDatasets(LogicalPlan parsed) {

@@ -2195,6 +2195,7 @@ public class VerifierTests extends ESTestCase {
             error("FROM test | WHERE present(gender)")
         );
     }
+
     public void testDissectByAggregate() {
         assertEquals(
             "1:21: aggregate function [min(first_name)] not allowed outside STATS command",
