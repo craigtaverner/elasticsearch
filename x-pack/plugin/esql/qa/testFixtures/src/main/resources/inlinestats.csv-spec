@@ -3985,7 +3985,7 @@ FROM languages_lookup_non_unique_key
 
 country:text      |language_name:keyword |MAX(language_code):integer |language_code:integer
 Atlantis          |null                  |null                       |null
-[Austria, Germany]|German                |null                       |null
+[Germany, Austria]|German                |null                       |null
 Canada            |English               |null                       |null
 Mv-Land           |Mv-Lang               |null                       |null
 Mv-Land2          |Mv-Lang2              |null                       |null

@@ -256,7 +256,7 @@ emp_no:integer | language_code:integer | language_name:keyword | country:text
     10091      | 1                     | null                  | United Kingdom
     10091      | 1                     | English               | United States of America
     10091      | 1                     | English               | null
-    10092      | 2                     | German                | [Austria, Germany]
+    10092      | 2                     | German                | [Germany, Austria]
     10092      | 2                     | German                | Switzerland
     10092      | 2                     | German                | null
     10093      | 3                     | null                  | null
@@ -281,7 +281,7 @@ emp_no:integer | language_code:integer | language_name:keyword | country:text
 10001          | 1                     | English               | null
 10001          | 1                     | null                  | United Kingdom
 10001          | 1                     | English               | United States of America
-10002          | 2                     | German                | [Austria, Germany]
+10002          | 2                     | German                | [Germany, Austria]
 10002          | 2                     | German                | Switzerland
 10002          | 2                     | German                | null
 10003          | 3                     | null                  | null
@@ -324,7 +324,7 @@ ROW language_code = 2
 
 ignoreOrder:true
 language_code:integer | country:text       | language_name:keyword
-2                     | [Austria, Germany] | German
+2                     | [Germany, Austria] | German
 2                     | Switzerland        | German
 2                     | null               | German
 ;
