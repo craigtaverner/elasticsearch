@@ -49,10 +49,14 @@ public class PreAnalyzer {
         plan.forEachUp(UnresolvedRelation.class, p -> {
             if (p.indexMode() == IndexMode.LOOKUP) {
                 lookupIndices.add(p.indexPattern());
-            } else if (indexes.containsKey(p.indexPattern()) == false) {
+            } else if (indexes.containsKey(p.indexPattern()) == false || indexes.get(p.indexPattern()) == p.indexMode()) {
                 indexes.put(p.indexPattern(), p.indexMode());
             } else {
-                throw new IllegalStateException("index pattern already found: " + p.indexPattern());
+                IndexMode m1 = p.indexMode();
+                IndexMode m2 = indexes.get(p.indexPattern());
+                throw new IllegalStateException(
+                    "index pattern '" + p.indexPattern() + "' found with with different index mode: " + m2 + " != " + m1
+                );
             }
         });
 
