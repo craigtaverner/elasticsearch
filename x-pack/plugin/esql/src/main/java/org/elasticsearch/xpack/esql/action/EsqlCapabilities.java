@@ -1089,7 +1089,12 @@ public class EsqlCapabilities {
         /**
          * Views.
          */
-        VIEW_V1(Build.current().isSnapshot()),
+        VIEWS_V1(Build.current().isSnapshot()),
+
+        /**
+         * Views with branching (requires FORK).
+         */
+        VIEWS_WITH_BRANCHING(VIEWS_V1.isEnabled()),
 
         /**
          * Support for the {@code leading_zeros} named parameter.

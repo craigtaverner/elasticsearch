@@ -60,6 +60,11 @@ public abstract class GenerativeForkRestTest extends EsqlSpecTestCase {
             testCase.requiredCapabilities.contains(SUBQUERY_IN_FROM_COMMAND.capabilityName())
         );
 
+        assumeFalse(
+            "Tests using VIEWS not supported for now (until we merge VIEWS and Subqueries/FORK including branch merging)",
+            testCase.requiredCapabilities.contains(VIEWS_V1.capabilityName())
+        );
+
         assumeTrue("Cluster needs to support FORK", hasCapabilities(adminClient(), List.of(FORK_V9.capabilityName())));
     }
 }
