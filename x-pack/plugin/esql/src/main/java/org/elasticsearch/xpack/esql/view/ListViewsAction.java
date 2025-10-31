@@ -13,11 +13,14 @@ import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.support.TransportAction;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.xcontent.ChunkedToXContentHelper;
 import org.elasticsearch.xcontent.ToXContentObject;
 import org.elasticsearch.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.util.Map;
+
+import static org.elasticsearch.xpack.esql.view.ViewMetadata.VIEWS;
 
 public class ListViewsAction extends ActionType<ListViewsAction.Response> {
 
@@ -78,7 +81,12 @@ public class ListViewsAction extends ActionType<ListViewsAction.Response> {
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            builder.value(views);
+            builder.startObject();
+            var v = ChunkedToXContentHelper.xContentObjectFieldObjects(VIEWS.getPreferredName(), views);
+            while (v.hasNext()) {
+                v.next().toXContent(builder, params);
+            }
+            builder.endObject();
             return builder;
         }
 

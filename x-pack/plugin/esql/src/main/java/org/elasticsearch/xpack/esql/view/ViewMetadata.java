@@ -28,7 +28,7 @@ import java.util.Objects;
 /**
  * Encapsulates view definitions as custom metadata inside cluster state.
  */
-public final class ViewMetadata extends AbstractNamedDiffable<Metadata.ClusterCustom> implements Metadata.ClusterCustom {
+public final class ViewMetadata extends AbstractNamedDiffable<Metadata.ProjectCustom> implements Metadata.ProjectCustom {
     public static final String TYPE = "esql_view";
     public static final NamedWriteableRegistry.Entry ENTRY = new NamedWriteableRegistry.Entry(ViewMetadata.class, TYPE, ViewMetadata::new);
     private static final TransportVersion ESQL_VIEWS = TransportVersion.fromName("esql_views");
@@ -66,6 +66,11 @@ public final class ViewMetadata extends AbstractNamedDiffable<Metadata.ClusterCu
     }
 
     @Override
+    public EnumSet<Metadata.XContentContext> context() {
+        return Metadata.ALL_CONTEXTS;
+    }
+
+    @Override
     public TransportVersion getMinimalSupportedVersion() {
         return ESQL_VIEWS;
     }
@@ -83,11 +88,6 @@ public final class ViewMetadata extends AbstractNamedDiffable<Metadata.ClusterCu
     @Override
     public Iterator<? extends ToXContent> toXContentChunked(ToXContent.Params ignored) {
         return ChunkedToXContentHelper.xContentObjectFieldObjects(VIEWS.getPreferredName(), views);
-    }
-
-    @Override
-    public EnumSet<Metadata.XContentContext> context() {
-        return EnumSet.of(Metadata.XContentContext.API);
     }
 
     @Override

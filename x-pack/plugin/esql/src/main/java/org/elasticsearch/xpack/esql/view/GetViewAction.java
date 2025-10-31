@@ -87,7 +87,9 @@ public class GetViewAction extends ActionType<GetViewAction.Response> {
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+            builder.startObject();
             view.toXContent(builder, params);
+            builder.endObject();
             return builder;
         }
 

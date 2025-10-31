@@ -202,6 +202,7 @@ public class EsqlPlugin extends Plugin implements ActionPlugin, ExtensiblePlugin
         ViewService viewService = new ClusterViewService(
             functionRegistry,
             services.clusterService(),
+            services.projectResolver(),
             ViewService.ViewServiceConfig.fromSettings(settings)
         );
         setupSharedSecrets();

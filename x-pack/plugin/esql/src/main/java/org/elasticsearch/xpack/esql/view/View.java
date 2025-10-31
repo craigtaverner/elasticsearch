@@ -55,17 +55,16 @@ public final class View implements Writeable, ToXContentFragment {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject();
         builder.field(QUERY.getPreferredName(), query);
-        return builder.endObject();
+        return builder;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        View policy = (View) o;
-        return Objects.equals(query, policy.query);
+        View other = (View) o;
+        return Objects.equals(query, other.query);
     }
 
     @Override
