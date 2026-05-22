@@ -531,7 +531,13 @@ public class CsvTestsDataLoader {
             ".ml-anomalies-shared-mappings.json",
             ".ml-anomalies-shared.csv",
             ".ml-anomalies-shared-settings.json"
-        ).withRequiredCapabilities(EsqlCapabilities.Cap.ML_ANOMALIES)
+        ).withRequiredCapabilities(EsqlCapabilities.Cap.ML_ANOMALIES),
+        new TestDataset("app-events-2026-01", "mapping-app-events.json"),
+        new TestDataset("app-events-2026-02", "mapping-app-events.json"),
+        new TestDataset("auth-events-2026-01", "mapping-app-events.json"),
+        new TestDataset("nginx-access-2026-01", "mapping-web-access.json"),
+        new TestDataset("apache-access-2026-01", "mapping-web-access.json"),
+        new TestDataset("cdn-events-2026-01", "mapping-app-events.json")
     ).collect(toMap(TestDataset::indexName, Function.identity()));
 
     // Developer flags for faster iteration when debugging specific csv-spec tests:
@@ -630,6 +636,15 @@ public class CsvTestsDataLoader {
         ),
         new ViewConfig("fork_over_union_view", List.of(EsqlCapabilities.Cap.SUBQUERY_IN_FROM_COMMAND_FORK_NULL_FILL_DATE_NANOS)),
         new ViewConfig("view_with_let", List.of(EsqlCapabilities.Cap.NAMED_SUBQUERY_LET))
+    ).collect(toMap(ViewConfig::name, Function.identity()));
+
+    // Views used exclusively by views_deep_dive.csv-spec. Kept separate from VIEW_CONFIGS so that
+    // FROM * queries in views.csv-spec do not pick them up and inflate branching/nesting.
+    public static final Map<String, ViewConfig> VIEWS_DEEP_DIVE = Stream.of(
+        new ViewConfig("app_tier"),
+        new ViewConfig("web_tier"),
+        new ViewConfig("all_logs"),
+        new ViewConfig("error_summary")
     ).collect(toMap(ViewConfig::name, Function.identity()));
 
     /**
@@ -1662,6 +1677,10 @@ public class CsvTestsDataLoader {
                 List.of(),
                 List.of()
             );
+        }
+
+        public TestDataset(String indexName, String mappingFileName) {
+            this(indexName, mappingFileName, indexName + ".csv", null, true, null, null, null, List.of(), List.of());
         }
 
         public TestDataset(String indexName, String mappingFileName, String dataFileName) {

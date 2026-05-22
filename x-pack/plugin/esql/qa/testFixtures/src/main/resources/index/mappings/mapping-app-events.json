@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "@timestamp": {
+      "type": "date"
+    },
+    "level": {
+      "type": "keyword"
+    },
+    "msg": {
+      "type": "keyword"
+    },
+    "service": {
+      "type": "keyword"
+    }
+  }
+}

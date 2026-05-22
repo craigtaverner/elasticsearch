@@ -1,0 +1,101 @@
+@timestamp:date,level:keyword,msg:keyword,service:keyword
+2026-01-05T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-05T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-05T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-05T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-05T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-05T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-05T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-05T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-05T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-05T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-06T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-06T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-06T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-06T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-06T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-06T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-06T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-06T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-06T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-06T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-07T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-07T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-07T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-07T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-07T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-07T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-07T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-07T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-07T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-07T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-08T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-08T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-08T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-08T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-08T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-08T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-08T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-08T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-08T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-08T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-09T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-09T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-09T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-09T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-09T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-09T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-09T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-09T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-09T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-09T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-10T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-10T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-10T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-10T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-10T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-10T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-10T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-10T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-10T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-10T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-11T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-11T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-11T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-11T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-11T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-11T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-11T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-11T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-11T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-11T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-12T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-12T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-12T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-12T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-12T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-12T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-12T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-12T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-12T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-12T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-13T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-13T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-13T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-13T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-13T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-13T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-13T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-13T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-13T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-13T08:45:00.000Z,ERROR,Refund failed,billing-api
+2026-01-14T08:00:00.000Z,INFO,User login succeeded,auth-api
+2026-01-14T08:05:00.000Z,ERROR,Login failed,auth-api
+2026-01-14T08:10:00.000Z,INFO,Order created,orders-api
+2026-01-14T08:15:00.000Z,INFO,Order updated,orders-api
+2026-01-14T08:20:00.000Z,INFO,Order cancelled,orders-api
+2026-01-14T08:25:00.000Z,WARN,Stock low,orders-api
+2026-01-14T08:30:00.000Z,ERROR,Payment processing failed,orders-api
+2026-01-14T08:35:00.000Z,INFO,Invoice sent,billing-api
+2026-01-14T08:40:00.000Z,INFO,Tax computed,billing-api
+2026-01-14T08:45:00.000Z,ERROR,Refund failed,billing-api

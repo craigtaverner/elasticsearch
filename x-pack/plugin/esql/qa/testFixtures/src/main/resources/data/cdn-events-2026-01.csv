@@ -1,0 +1,51 @@
+@timestamp:date,level:keyword,msg:keyword,service:keyword
+2026-01-05T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-05T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-05T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-05T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-05T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-06T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-06T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-06T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-06T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-06T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-07T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-07T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-07T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-07T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-07T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-08T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-08T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-08T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-08T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-08T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-09T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-09T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-09T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-09T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-09T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-10T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-10T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-10T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-10T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-10T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-11T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-11T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-11T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-11T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-11T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-12T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-12T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-12T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-12T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-12T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-13T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-13T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-13T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-13T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-13T08:20:00.000Z,ERROR,Origin timeout,cdn-edge
+2026-01-14T08:00:00.000Z,INFO,Cache hit,cdn-edge
+2026-01-14T08:05:00.000Z,INFO,Cache populated,cdn-edge
+2026-01-14T08:10:00.000Z,INFO,Cache invalidation,cdn-edge
+2026-01-14T08:15:00.000Z,WARN,Cache miss spike,cdn-edge
+2026-01-14T08:20:00.000Z,ERROR,Origin timeout,cdn-edge

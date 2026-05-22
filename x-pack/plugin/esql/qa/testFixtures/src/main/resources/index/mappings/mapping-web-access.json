@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "@timestamp": {
+      "type": "date"
+    },
+    "status": {
+      "type": "long"
+    },
+    "msg": {
+      "type": "keyword"
+    },
+    "service": {
+      "type": "keyword"
+    }
+  }
+}
