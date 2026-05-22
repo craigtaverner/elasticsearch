@@ -263,7 +263,13 @@ public class CsvTestsDataLoader {
             "metric_temporality.csv",
             "metric_temporality-settings.json"
         ).withRequiredCapabilities(EsqlCapabilities.Cap.TSDB_TEMPORALITY_SUPPORT_V7),
-        new TestDataset("ts_window", "ts_window-mappings.json", "ts_window.csv", "ts_window-settings.json")
+        new TestDataset("ts_window", "ts_window-mappings.json", "ts_window.csv", "ts_window-settings.json"),
+        new TestDataset("app-events-2026-01", "mapping-app-events.json"),
+        new TestDataset("app-events-2026-02", "mapping-app-events.json"),
+        new TestDataset("auth-events-2026-01", "mapping-app-events.json"),
+        new TestDataset("nginx-access-2026-01", "mapping-web-access.json"),
+        new TestDataset("apache-access-2026-01", "mapping-web-access.json"),
+        new TestDataset("cdn-events-2026-01", "mapping-app-events.json")
     ).collect(toMap(TestDataset::indexName, Function.identity()));
 
     // Developer flags for faster iteration when debugging specific csv-spec tests:
@@ -309,6 +315,15 @@ public class CsvTestsDataLoader {
         new ViewConfig("view_row_constants", List.of(EsqlCapabilities.Cap.SUBQUERY_WITH_ROW)),
         new ViewConfig("view_row_eval", List.of(EsqlCapabilities.Cap.SUBQUERY_WITH_ROW)),
         new ViewConfig("view_employees_row_subquery", List.of(EsqlCapabilities.Cap.SUBQUERY_WITH_ROW))
+    ).collect(toMap(ViewConfig::name, Function.identity()));
+
+    // Views used exclusively by views_deep_dive.csv-spec. Kept separate from VIEW_CONFIGS so that
+    // FROM * queries in views.csv-spec do not pick them up and inflate branching/nesting.
+    public static final Map<String, ViewConfig> VIEWS_DEEP_DIVE = Stream.of(
+        new ViewConfig("app_tier"),
+        new ViewConfig("web_tier"),
+        new ViewConfig("all_logs"),
+        new ViewConfig("error_summary")
     ).collect(toMap(ViewConfig::name, Function.identity()));
 
     /**
@@ -1186,6 +1201,10 @@ public class CsvTestsDataLoader {
 
         public TestDataset(String indexName) {
             this(indexName, "mapping-" + indexName + ".json", indexName + ".csv", null, true, null, null, null, List.of(), List.of());
+        }
+
+        public TestDataset(String indexName, String mappingFileName) {
+            this(indexName, mappingFileName, indexName + ".csv", null, true, null, null, null, List.of(), List.of());
         }
 
         public TestDataset(String indexName, String mappingFileName, String dataFileName) {

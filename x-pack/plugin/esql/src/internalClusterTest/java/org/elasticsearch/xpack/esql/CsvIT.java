@@ -387,6 +387,12 @@ public class CsvIT extends ESTestCase {
                     views.maybeLoad(name, view);
                 }
             });
+        } else if ("views_deep_dive".equals(currentGroupName)) {
+            CsvTestsDataLoader.VIEWS_DEEP_DIVE.forEach((name, view) -> {
+                if (view.requiredCapabilities().stream().allMatch(EsqlCapabilities.Cap::isEnabled)) {
+                    views.maybeLoad(name, view);
+                }
+            });
         } else {
             views.unloadAll();
         }

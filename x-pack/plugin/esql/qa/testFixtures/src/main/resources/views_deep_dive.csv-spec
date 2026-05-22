@@ -1,0 +1,187 @@
+// Tests for the "ES|QL Views - a deep dive" blog post.
+//
+// These tests build a small observability story across six small indices, each holding
+// 10 days of events (Jan 5-14, 2026 for the *-01 indices; Feb 5-14, 2026 for the *-02 index).
+//
+//   * app-events-2026-01    @timestamp, level, msg, service   100 rows (60 INFO, 10 WARN, 30 ERROR)
+//   * app-events-2026-02    same schema                        60 rows (30 INFO, 10 WARN, 20 ERROR)
+//   * auth-events-2026-01   same schema                        50 rows (20 INFO, 20 WARN, 10 ERROR)
+//   * nginx-access-2026-01  @timestamp, status, msg, service   80 rows (50x200, 10x301, 10x404, 10x503)
+//   * apache-access-2026-01 same schema                        70 rows (40x200, 10x301, 10x404, 10x500)
+//   * cdn-events-2026-01    level/msg/service schema           50 rows (30 INFO, 10 WARN, 10 ERROR)
+//
+// Four views are defined on top:
+//   * app_tier      = simple union of app + auth event indices                          210 rows
+//   * web_tier      = web access logs with EVAL+KEEP that derives "level" from "status" 150 rows
+//   * all_logs      = nested view combining app_tier + web_tier + cdn-events-2026-01    410 rows
+//   * error_summary = STATS view: filters all_logs to ERROR and counts by service         6 rows
+
+
+// A view used in a FROM clause behaves exactly like an index. The user does not
+// see the underlying app-events-* and auth-events-* patterns; they just query "app_tier".
+basicVirtualIndex
+required_capability: views_with_no_branching
+required_capability: views_crud_as_index_actions
+
+FROM app_tier
+| STATS count = COUNT()
+;
+
+count:long
+210
+;
+
+
+// The same virtual index, grouped by a field from the source schema.
+// Confirms that "level" survives unchanged from the source rows.
+basicVirtualIndexByLevel
+required_capability: views_with_no_branching
+required_capability: views_crud_as_index_actions
+
+FROM app_tier
+| STATS count = COUNT() BY level
+;
+ignoreOrder:true
+
+count:long | level:keyword
+60         | ERROR
+110        | INFO
+40         | WARN
+;
+
+
+// web_tier is the schema-normalizing view: the source has "status" (long),
+// but the view exposes "level" derived via EVAL+CASE. Callers query it just
+// like an index without knowing about the underlying status field.
+schemaNormalizingView
+required_capability: views_with_no_branching
+required_capability: views_crud_as_index_actions
+
+FROM web_tier
+| STATS count = COUNT() BY level
+;
+ignoreOrder:true
+
+count:long | level:keyword
+20         | ERROR
+110        | INFO
+20         | WARN
+;
+
+
+// all_logs is a nested view: its definition references app_tier and web_tier
+// alongside a plain index. This is the "view of views" composition.
+nestedViewCount
+required_capability: views_with_branching
+required_capability: views_crud_as_index_actions
+
+FROM all_logs
+| STATS count = COUNT()
+;
+
+count:long
+410
+;
+
+
+// The hero compaction example for the blog: a single-source query whose
+// resolution produces a multi-branch plan that compaction flattens.
+//
+// Resolution expands all_logs to (UR[app-events-*,auth-events-*], NamedSubquery[web_tier body], UR[cdn-events-2026-01]).
+// Compaction merges the two bare UnresolvedRelations, leaving a 2-branch plan that
+// the STATS can run over directly.
+nestedViewByLevelHero
+required_capability: views_with_branching
+required_capability: views_crud_as_index_actions
+
+FROM all_logs
+| STATS count = COUNT() BY level
+;
+ignoreOrder:true
+
+count:long | level:keyword
+90         | ERROR
+250        | INFO
+70         | WARN
+;
+
+
+// Bucket aggregation through the view. Restricts to Jan 5-11 (the first week)
+// to keep the result compact, then groups errors by day.
+// Each Jan day has 7 errors across all sources:
+//   3 from app-events-2026-01, 1 from auth-events-2026-01,
+//   1 from cdn-events-2026-01, 1 from nginx (503), 1 from apache (500)
+nestedViewErrorsPerDay
+required_capability: views_with_branching
+required_capability: views_crud_as_index_actions
+
+FROM all_logs
+| WHERE level == "ERROR" AND @timestamp >= "2026-01-05" AND @timestamp < "2026-01-12"
+| STATS errors = COUNT() BY day = BUCKET(@timestamp, 1 day)
+| SORT day
+;
+
+errors:long | day:datetime
+7           | 2026-01-05T00:00:00.000Z
+7           | 2026-01-06T00:00:00.000Z
+7           | 2026-01-07T00:00:00.000Z
+7           | 2026-01-08T00:00:00.000Z
+7           | 2026-01-09T00:00:00.000Z
+7           | 2026-01-10T00:00:00.000Z
+7           | 2026-01-11T00:00:00.000Z
+;
+
+
+// error_summary is a STATS view: its output schema (errors, service) does not
+// match the source schema (@timestamp, level, msg, service). This is the
+// "virtual index whose columns differ from the source" demonstration.
+statsViewErrorSummary
+required_capability: views_with_branching
+required_capability: views_crud_as_index_actions
+
+FROM error_summary
+;
+ignoreOrder:true
+
+errors:long | service:keyword
+30          | auth-api
+10          | billing-api
+10          | cdn-edge
+20          | orders-api
+10          | web-backend
+10          | web-frontend
+;
+
+
+// A STATS view is just an index from the caller's perspective: additional
+// processing (filtering on the aggregated output) composes naturally on top.
+// Here we ask "which services produced more than 15 errors?".
+statsViewWithExternalFilter
+required_capability: views_with_branching
+required_capability: views_crud_as_index_actions
+
+FROM error_summary
+| WHERE errors > 15
+| SORT service
+;
+
+errors:long | service:keyword
+30          | auth-api
+20          | orders-api
+;
+
+
+// Combining a view with a plain index in the same FROM. No deduplication
+// between the index reference inside all_logs (cdn-events-2026-01) and the
+// outer reference to the same index, so the count is 410 + 50 = 460.
+nestedViewMixedWithIndex
+required_capability: views_with_branching
+required_capability: views_crud_as_index_actions
+
+FROM all_logs, cdn-events-2026-01
+| STATS count = COUNT()
+;
+
+count:long
+460
+;

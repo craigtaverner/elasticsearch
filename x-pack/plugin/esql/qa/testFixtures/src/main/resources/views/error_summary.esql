@@ -1,0 +1,3 @@
+FROM all_logs
+| WHERE level == "ERROR"
+| STATS errors = COUNT() BY service

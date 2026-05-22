@@ -1,0 +1,3 @@
+FROM nginx-access-*, apache-access-*
+| EVAL level = CASE(status >= 500, "ERROR", status >= 400, "WARN", "INFO")
+| KEEP @timestamp, level, msg, service
