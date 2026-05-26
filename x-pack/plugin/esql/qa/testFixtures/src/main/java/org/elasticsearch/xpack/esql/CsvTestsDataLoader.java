@@ -1007,6 +1007,9 @@ public class CsvTestsDataLoader {
                 }
                 loadView(client, view);
             }
+            for (var view : VIEWS_DEEP_DIVE.values()) {
+                loadView(client, view);
+            }
         } else {
             logger.info("Skipping loading views as the cluster does not support views");
         }
@@ -1049,6 +1052,9 @@ public class CsvTestsDataLoader {
             if (views.isEmpty() == false) {
                 logger.debug("Deleting views {}", views);
                 deleteViews(client, views);
+            }
+            for (var view : VIEWS_DEEP_DIVE.values()) {
+                deleteView(client, view.name);
             }
         } else {
             logger.info("Skipping deleting views as the cluster does not support views");
