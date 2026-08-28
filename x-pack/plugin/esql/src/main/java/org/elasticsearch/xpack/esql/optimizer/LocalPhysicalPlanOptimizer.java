@@ -14,6 +14,7 @@ import org.elasticsearch.xpack.esql.common.Failures;
 import org.elasticsearch.xpack.esql.core.expression.Attribute;
 import org.elasticsearch.xpack.esql.optimizer.rules.physical.ReplaceSampledStatsBySampleAndStats;
 import org.elasticsearch.xpack.esql.optimizer.rules.physical.local.EnableSpatialDistancePushdown;
+import org.elasticsearch.xpack.esql.optimizer.rules.physical.local.EnableSpatialGridQueryPushdown;
 import org.elasticsearch.xpack.esql.optimizer.rules.physical.local.ExtractDimensionFieldsAfterAggregation;
 import org.elasticsearch.xpack.esql.optimizer.rules.physical.local.InjectRowPositionForExternalId;
 import org.elasticsearch.xpack.esql.optimizer.rules.physical.local.InsertExternalFieldExtraction;
@@ -88,6 +89,7 @@ public class LocalPhysicalPlanOptimizer extends ParameterizedRuleExecutor<Physic
             new PushStatsToExternalSource(),
             new PushTopNIntoExternalSource(),
             new EnableSpatialDistancePushdown(),
+            new EnableSpatialGridQueryPushdown(),
             new ReplaceSampledStatsBySampleAndStats(() -> approximationApplied = true),
             new PushSampleToSource()
         );

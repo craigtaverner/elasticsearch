@@ -332,7 +332,16 @@ public abstract class BinarySpatialFunction extends BinaryScalarFunction impleme
     }
 
     private static boolean isPushableLiteralAttribute(Expression exp) {
-        // TODO: Support pushdown of geo-grid queries where the constant is a geo-grid-id literal
-        return DataType.isSpatial(exp.dataType()) && exp.foldable();
+        // Accept ordinary spatial literals (WKB-encoded geo_shape / geo_point) as well as GEOHASH
+        // and GEOTILE cell-ID literals. GEOHASH and GEOTILE cells are exact rectangles, so
+        // converting the cell ID to its WKB boundary and using a geo_shape Lucene query gives
+        // the same results as in-memory evaluation.
+        //
+        // GEOHEX (H3) is intentionally excluded: H3 cell boundaries are mathematical
+        // approximations of irregular hexagons, and Lucene's polygon-intersection semantics
+        // differ from H3's own containment algorithm for points near cell boundaries. Correct
+        // GEOHEX pushdown would require GeoGridQueryBuilder (from the spatial plugin).
+        return (DataType.isSpatial(exp.dataType()) || exp.dataType() == DataType.GEOHASH || exp.dataType() == DataType.GEOTILE)
+            && exp.foldable();
     }
 }

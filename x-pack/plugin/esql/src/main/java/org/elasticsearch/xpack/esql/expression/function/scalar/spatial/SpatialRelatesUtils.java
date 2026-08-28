@@ -212,6 +212,12 @@ public class SpatialRelatesUtils {
         } else if (value instanceof BytesRef bytesRef) {
             // Single value expression
             return SpatialCoordinateTypes.UNSPECIFIED.wkbToGeometry(bytesRef);
+        } else if (value instanceof Long longValue && DataType.isGeoGrid(dataType)) {
+            // Geo-grid cell ID (GEOHASH, GEOTILE, GEOHEX) — convert to the cell's boundary geometry.
+            // Each grid function exposes a toBounds(long) helper that converts the encoded cell ID to
+            // the WKB of its bounding polygon/rectangle, correctly handling antimeridian wrapping.
+            BytesRef wkb = gridCellToWkb(longValue, dataType);
+            return SpatialCoordinateTypes.UNSPECIFIED.wkbToGeometry(wkb);
         } else if (value instanceof List<?> bytesRefList) {
             // Multi-value expression
             ArrayList<Geometry> geometries = new ArrayList<>();
@@ -224,5 +230,19 @@ public class SpatialRelatesUtils {
                 "Unsupported combination of literal [" + value.getClass().getSimpleName() + "] of type [" + dataType + "]"
             );
         }
+    }
+
+    /**
+     * Converts a geo-grid cell ID (encoded as a {@code long}) to the WKB of its boundary geometry.
+     * Delegates to the per-grid {@code toBounds} helpers in {@link StGeohash}, {@link StGeotile},
+     * and {@link StGeohex}, which handle antimeridian wrapping for H3 cells.
+     */
+    public static BytesRef gridCellToWkb(long cellId, DataType dataType) {
+        return switch (dataType) {
+            case GEOHASH -> StGeohash.toBounds(cellId);
+            case GEOTILE -> StGeotile.toBounds(cellId);
+            case GEOHEX -> StGeohex.toBounds(cellId);
+            default -> throw new IllegalArgumentException("Not a geo-grid data type: " + dataType);
+        };
     }
 }
