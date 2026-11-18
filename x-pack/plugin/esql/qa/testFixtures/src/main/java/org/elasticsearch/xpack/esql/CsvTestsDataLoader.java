@@ -534,7 +534,9 @@ public class CsvTestsDataLoader {
         ).withRequiredCapabilities(EsqlCapabilities.Cap.ML_ANOMALIES),
         new TestDataset("app-events-2026-01", "mapping-app-events.json"),
         new TestDataset("app-events-2026-02", "mapping-app-events.json"),
+        new TestDataset("app-events-2026-03", "mapping-app-events.json"),
         new TestDataset("auth-events-2026-01", "mapping-app-events.json"),
+        new TestDataset("auth-events-2026-02", "mapping-app-events.json"),
         new TestDataset("nginx-access-2026-01", "mapping-web-access.json"),
         new TestDataset("apache-access-2026-01", "mapping-web-access.json"),
         new TestDataset("cdn-events-2026-01", "mapping-app-events.json")
@@ -1053,8 +1055,9 @@ public class CsvTestsDataLoader {
                 logger.debug("Deleting views {}", views);
                 deleteViews(client, views);
             }
-            for (var view : VIEWS_DEEP_DIVE.values()) {
-                deleteView(client, view.name);
+            var deepDiveViews = Sets.intersection(listViews(client), VIEWS_DEEP_DIVE.keySet());
+            if (deepDiveViews.isEmpty() == false) {
+                deleteViews(client, deepDiveViews);
             }
         } else {
             logger.info("Skipping deleting views as the cluster does not support views");
@@ -1686,7 +1689,7 @@ public class CsvTestsDataLoader {
         }
 
         public TestDataset(String indexName, String mappingFileName) {
-            this(indexName, mappingFileName, indexName + ".csv", null, true, null, null, null, List.of(), List.of());
+            this(indexName, mappingFileName, indexName + ".csv", null, true, false, null, null, null, List.of(), List.of());
         }
 
         public TestDataset(String indexName, String mappingFileName, String dataFileName) {

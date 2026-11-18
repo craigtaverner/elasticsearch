@@ -1,61 +1,219 @@
 @timestamp:date,level:keyword,msg:keyword,service:keyword
-2026-02-05T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-05T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-05T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-05T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-05T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-05T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-06T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-06T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-06T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-06T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-06T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-06T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-07T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-07T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-07T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-07T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-07T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-07T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-08T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-08T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-08T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-08T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-08T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-08T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-09T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-09T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-09T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-09T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-09T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-09T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-10T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-10T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-10T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-10T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-10T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-10T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-11T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-11T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-11T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-11T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-11T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-11T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-12T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-12T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-12T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-12T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-12T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-12T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-13T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-13T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-13T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-13T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-13T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-13T08:25:00.000Z,WARN,Card expiring,billing-api
-2026-02-14T08:00:00.000Z,ERROR,Session token expired,auth-api
-2026-02-14T08:05:00.000Z,INFO,Order shipped,orders-api
-2026-02-14T08:10:00.000Z,INFO,Order delivered,orders-api
-2026-02-14T08:15:00.000Z,ERROR,Order fulfillment failed,orders-api
-2026-02-14T08:20:00.000Z,INFO,Statement generated,billing-api
-2026-02-14T08:25:00.000Z,WARN,Card expiring,billing-api
+2026-02-01T00:12:53.000Z,INFO,Order shipped,orders-api
+2026-02-01T01:24:27.000Z,INFO,Tax computed,billing-api
+2026-02-01T01:36:38.000Z,INFO,Order created,orders-api
+2026-02-01T06:20:04.000Z,INFO,Order shipped,orders-api
+2026-02-01T07:19:29.000Z,INFO,Logout,auth-api
+2026-02-01T07:22:58.000Z,INFO,Order created,orders-api
+2026-02-01T07:43:44.000Z,INFO,Logout,auth-api
+2026-02-01T08:19:15.000Z,INFO,Invoice sent,billing-api
+2026-02-01T10:17:21.000Z,ERROR,Payment processing failed,orders-api
+2026-02-01T10:37:49.000Z,INFO,Order updated,orders-api
+2026-02-01T14:35:42.000Z,INFO,Logout,auth-api
+2026-02-01T19:52:42.000Z,ERROR,Payment processing failed,orders-api
+2026-02-01T22:46:45.000Z,INFO,OAuth token refresh,auth-api
+2026-02-02T05:37:21.000Z,INFO,Order updated,orders-api
+2026-02-02T21:21:45.000Z,INFO,Tax computed,billing-api
+2026-02-03T04:32:46.000Z,INFO,Order delivered,orders-api
+2026-02-03T05:32:57.000Z,ERROR,Order fulfillment failed,orders-api
+2026-02-03T14:15:27.000Z,INFO,Invoice sent,billing-api
+2026-02-03T15:52:25.000Z,INFO,Tax computed,billing-api
+2026-02-03T17:08:13.000Z,INFO,Order shipped,orders-api
+2026-02-03T18:00:39.000Z,INFO,Order created,orders-api
+2026-02-03T21:00:48.000Z,ERROR,Refund failed,billing-api
+2026-02-03T23:31:08.000Z,INFO,OAuth token refresh,auth-api
+2026-02-03T23:50:11.000Z,INFO,Invoice sent,billing-api
+2026-02-04T20:27:27.000Z,INFO,OAuth token refresh,auth-api
+2026-02-04T20:54:42.000Z,INFO,Order shipped,orders-api
+2026-02-05T03:12:10.000Z,INFO,Logout,auth-api
+2026-02-05T03:20:51.000Z,INFO,Order shipped,orders-api
+2026-02-05T04:12:15.000Z,INFO,Logout,auth-api
+2026-02-05T05:38:25.000Z,INFO,Order shipped,orders-api
+2026-02-06T00:43:03.000Z,INFO,Tax computed,billing-api
+2026-02-06T04:35:02.000Z,INFO,Order delivered,orders-api
+2026-02-06T05:13:15.000Z,INFO,Order delivered,orders-api
+2026-02-06T06:23:55.000Z,INFO,Logout,auth-api
+2026-02-06T06:54:46.000Z,INFO,Tax computed,billing-api
+2026-02-06T08:44:50.000Z,INFO,OAuth token refresh,auth-api
+2026-02-06T20:10:00.000Z,INFO,Tax computed,billing-api
+2026-02-06T20:24:34.000Z,ERROR,Refund failed,billing-api
+2026-02-07T00:20:17.000Z,ERROR,Login failed,auth-api
+2026-02-07T08:02:56.000Z,INFO,Tax computed,billing-api
+2026-02-07T08:17:54.000Z,INFO,User login succeeded,auth-api
+2026-02-07T08:40:50.000Z,INFO,Order shipped,orders-api
+2026-02-07T10:33:01.000Z,INFO,Order shipped,orders-api
+2026-02-07T17:02:43.000Z,INFO,Order shipped,orders-api
+2026-02-07T21:04:34.000Z,ERROR,Refund failed,billing-api
+2026-02-08T05:38:49.000Z,INFO,Order updated,orders-api
+2026-02-08T06:43:48.000Z,INFO,Order created,orders-api
+2026-02-08T10:12:06.000Z,INFO,Logout,auth-api
+2026-02-08T10:35:09.000Z,INFO,Order shipped,orders-api
+2026-02-08T11:35:57.000Z,INFO,Order updated,orders-api
+2026-02-08T12:03:15.000Z,INFO,Order cancelled,orders-api
+2026-02-08T14:10:44.000Z,WARN,Card expiring,billing-api
+2026-02-08T18:02:52.000Z,ERROR,Order fulfillment failed,orders-api
+2026-02-08T20:14:17.000Z,INFO,User login succeeded,auth-api
+2026-02-08T21:02:13.000Z,INFO,Logout,auth-api
+2026-02-09T06:37:17.000Z,INFO,OAuth token refresh,auth-api
+2026-02-09T12:21:23.000Z,WARN,Stock low,orders-api
+2026-02-09T19:02:01.000Z,INFO,Order shipped,orders-api
+2026-02-09T19:19:40.000Z,INFO,Invoice sent,billing-api
+2026-02-09T21:38:53.000Z,INFO,Statement generated,billing-api
+2026-02-10T01:10:56.000Z,INFO,OAuth token refresh,auth-api
+2026-02-10T03:06:49.000Z,INFO,Statement generated,billing-api
+2026-02-10T09:32:10.000Z,WARN,Card expiring,billing-api
+2026-02-10T14:05:50.000Z,WARN,Stock low,orders-api
+2026-02-10T23:02:25.000Z,INFO,Logout,auth-api
+2026-02-11T03:32:54.000Z,INFO,Order cancelled,orders-api
+2026-02-11T05:47:44.000Z,WARN,Stock low,orders-api
+2026-02-11T05:51:44.000Z,INFO,Statement generated,billing-api
+2026-02-11T11:06:01.000Z,INFO,Order cancelled,orders-api
+2026-02-11T12:19:01.000Z,INFO,Order created,orders-api
+2026-02-11T13:33:16.000Z,INFO,Order updated,orders-api
+2026-02-11T15:05:29.000Z,INFO,Tax computed,billing-api
+2026-02-11T18:24:59.000Z,INFO,Invoice sent,billing-api
+2026-02-11T20:02:40.000Z,INFO,Logout,auth-api
+2026-02-11T22:44:06.000Z,INFO,Invoice sent,billing-api
+2026-02-11T23:43:16.000Z,INFO,OAuth token refresh,auth-api
+2026-02-12T00:13:19.000Z,INFO,Logout,auth-api
+2026-02-12T07:18:16.000Z,INFO,Order cancelled,orders-api
+2026-02-12T08:08:02.000Z,INFO,Logout,auth-api
+2026-02-12T08:29:42.000Z,INFO,OAuth token refresh,auth-api
+2026-02-12T09:38:53.000Z,ERROR,Refund failed,billing-api
+2026-02-12T09:47:33.000Z,INFO,Tax computed,billing-api
+2026-02-12T10:21:44.000Z,INFO,Statement generated,billing-api
+2026-02-12T11:14:26.000Z,INFO,User login succeeded,auth-api
+2026-02-12T11:19:40.000Z,WARN,Card expiring,billing-api
+2026-02-12T11:41:34.000Z,INFO,Tax computed,billing-api
+2026-02-12T12:04:16.000Z,INFO,Order cancelled,orders-api
+2026-02-12T15:19:04.000Z,INFO,Tax computed,billing-api
+2026-02-12T19:03:44.000Z,WARN,Card expiring,billing-api
+2026-02-13T03:06:10.000Z,INFO,Order shipped,orders-api
+2026-02-13T06:30:48.000Z,INFO,Tax computed,billing-api
+2026-02-13T09:25:48.000Z,INFO,Order updated,orders-api
+2026-02-13T11:05:38.000Z,INFO,Order delivered,orders-api
+2026-02-13T11:54:40.000Z,INFO,Statement generated,billing-api
+2026-02-13T12:20:18.000Z,INFO,OAuth token refresh,auth-api
+2026-02-13T14:47:06.000Z,INFO,User login succeeded,auth-api
+2026-02-13T15:14:34.000Z,INFO,Order cancelled,orders-api
+2026-02-13T16:14:54.000Z,INFO,Order cancelled,orders-api
+2026-02-13T17:39:38.000Z,INFO,OAuth token refresh,auth-api
+2026-02-13T17:43:26.000Z,INFO,Invoice sent,billing-api
+2026-02-13T21:32:47.000Z,INFO,Tax computed,billing-api
+2026-02-14T01:13:08.000Z,INFO,User login succeeded,auth-api
+2026-02-14T02:54:11.000Z,INFO,Order updated,orders-api
+2026-02-14T03:17:05.000Z,INFO,Statement generated,billing-api
+2026-02-14T10:07:10.000Z,ERROR,Payment processing failed,orders-api
+2026-02-14T10:21:25.000Z,INFO,Order updated,orders-api
+2026-02-14T20:26:55.000Z,INFO,Order cancelled,orders-api
+2026-02-15T09:49:34.000Z,ERROR,Payment processing failed,orders-api
+2026-02-15T16:49:02.000Z,INFO,Statement generated,billing-api
+2026-02-16T08:30:53.000Z,INFO,Order shipped,orders-api
+2026-02-16T20:00:33.000Z,INFO,Order created,orders-api
+2026-02-17T01:10:56.000Z,INFO,Tax computed,billing-api
+2026-02-17T04:25:53.000Z,INFO,Order shipped,orders-api
+2026-02-17T04:31:31.000Z,ERROR,Session token expired,auth-api
+2026-02-17T07:42:24.000Z,INFO,Statement generated,billing-api
+2026-02-17T08:27:31.000Z,INFO,Order delivered,orders-api
+2026-02-17T09:44:43.000Z,INFO,Invoice sent,billing-api
+2026-02-17T10:16:02.000Z,INFO,Statement generated,billing-api
+2026-02-17T16:18:03.000Z,INFO,Logout,auth-api
+2026-02-17T20:12:09.000Z,INFO,Order updated,orders-api
+2026-02-17T23:58:39.000Z,INFO,Order delivered,orders-api
+2026-02-18T02:26:26.000Z,INFO,Tax computed,billing-api
+2026-02-18T02:38:04.000Z,INFO,Statement generated,billing-api
+2026-02-18T05:22:40.000Z,INFO,Order updated,orders-api
+2026-02-18T06:04:18.000Z,INFO,Statement generated,billing-api
+2026-02-18T07:28:00.000Z,INFO,User login succeeded,auth-api
+2026-02-18T08:20:38.000Z,INFO,Logout,auth-api
+2026-02-18T10:31:15.000Z,INFO,Logout,auth-api
+2026-02-18T11:04:40.000Z,INFO,OAuth token refresh,auth-api
+2026-02-18T11:54:03.000Z,INFO,OAuth token refresh,auth-api
+2026-02-18T18:22:04.000Z,INFO,Statement generated,billing-api
+2026-02-18T21:37:58.000Z,INFO,Statement generated,billing-api
+2026-02-18T23:26:38.000Z,INFO,Order cancelled,orders-api
+2026-02-19T02:00:49.000Z,INFO,Order shipped,orders-api
+2026-02-19T02:36:13.000Z,WARN,Card expiring,billing-api
+2026-02-19T05:55:45.000Z,INFO,Order updated,orders-api
+2026-02-19T07:32:34.000Z,INFO,Logout,auth-api
+2026-02-19T15:17:45.000Z,INFO,Order cancelled,orders-api
+2026-02-19T16:58:16.000Z,WARN,Card expiring,billing-api
+2026-02-19T19:42:35.000Z,INFO,Order cancelled,orders-api
+2026-02-19T20:05:24.000Z,INFO,Statement generated,billing-api
+2026-02-20T03:01:53.000Z,ERROR,Session token expired,auth-api
+2026-02-20T07:08:20.000Z,INFO,Statement generated,billing-api
+2026-02-20T07:23:36.000Z,INFO,Order cancelled,orders-api
+2026-02-20T08:32:10.000Z,INFO,Tax computed,billing-api
+2026-02-20T10:06:19.000Z,INFO,Order updated,orders-api
+2026-02-20T11:33:46.000Z,INFO,Logout,auth-api
+2026-02-20T16:08:11.000Z,INFO,Invoice sent,billing-api
+2026-02-20T16:27:52.000Z,INFO,OAuth token refresh,auth-api
+2026-02-20T20:39:35.000Z,INFO,Order cancelled,orders-api
+2026-02-20T23:49:18.000Z,INFO,Order delivered,orders-api
+2026-02-21T00:32:10.000Z,INFO,Order created,orders-api
+2026-02-21T01:05:30.000Z,INFO,Statement generated,billing-api
+2026-02-21T01:23:44.000Z,INFO,Order shipped,orders-api
+2026-02-21T06:03:35.000Z,WARN,Stock low,orders-api
+2026-02-21T06:28:51.000Z,INFO,Logout,auth-api
+2026-02-21T07:44:46.000Z,INFO,User login succeeded,auth-api
+2026-02-21T09:58:45.000Z,INFO,Order shipped,orders-api
+2026-02-21T14:48:49.000Z,ERROR,Login failed,auth-api
+2026-02-21T15:07:20.000Z,INFO,Order updated,orders-api
+2026-02-21T16:08:10.000Z,INFO,User login succeeded,auth-api
+2026-02-21T16:51:37.000Z,WARN,Card expiring,billing-api
+2026-02-21T17:00:08.000Z,INFO,User login succeeded,auth-api
+2026-02-21T21:16:02.000Z,INFO,Order created,orders-api
+2026-02-22T02:02:23.000Z,INFO,Order shipped,orders-api
+2026-02-22T10:08:34.000Z,INFO,OAuth token refresh,auth-api
+2026-02-22T11:20:46.000Z,ERROR,Order fulfillment failed,orders-api
+2026-02-22T15:41:16.000Z,INFO,Statement generated,billing-api
+2026-02-22T17:24:08.000Z,INFO,Order delivered,orders-api
+2026-02-22T21:25:21.000Z,INFO,Tax computed,billing-api
+2026-02-22T21:55:27.000Z,INFO,Statement generated,billing-api
+2026-02-22T22:02:41.000Z,INFO,Invoice sent,billing-api
+2026-02-23T01:50:08.000Z,INFO,Tax computed,billing-api
+2026-02-23T02:24:24.000Z,INFO,Statement generated,billing-api
+2026-02-23T05:26:07.000Z,INFO,Order cancelled,orders-api
+2026-02-23T06:49:44.000Z,INFO,Order updated,orders-api
+2026-02-23T07:01:28.000Z,INFO,Order shipped,orders-api
+2026-02-23T08:10:35.000Z,INFO,User login succeeded,auth-api
+2026-02-23T17:12:40.000Z,INFO,Order delivered,orders-api
+2026-02-23T22:00:22.000Z,WARN,Card expiring,billing-api
+2026-02-23T22:02:39.000Z,INFO,Statement generated,billing-api
+2026-02-24T01:16:49.000Z,INFO,OAuth token refresh,auth-api
+2026-02-24T09:38:17.000Z,INFO,Statement generated,billing-api
+2026-02-25T00:40:48.000Z,INFO,OAuth token refresh,auth-api
+2026-02-25T01:11:43.000Z,INFO,Order delivered,orders-api
+2026-02-25T01:33:36.000Z,INFO,Tax computed,billing-api
+2026-02-25T03:51:33.000Z,INFO,Tax computed,billing-api
+2026-02-25T04:04:54.000Z,WARN,Stock low,orders-api
+2026-02-25T04:07:55.000Z,INFO,Tax computed,billing-api
+2026-02-25T08:35:01.000Z,WARN,Card expiring,billing-api
+2026-02-25T08:54:15.000Z,INFO,Logout,auth-api
+2026-02-25T11:40:14.000Z,INFO,Order created,orders-api
+2026-02-25T12:51:34.000Z,INFO,User login succeeded,auth-api
+2026-02-25T13:34:57.000Z,ERROR,Session token expired,auth-api
+2026-02-25T21:20:03.000Z,ERROR,Login failed,auth-api
+2026-02-25T21:57:44.000Z,WARN,Stock low,orders-api
+2026-02-26T03:27:04.000Z,INFO,Logout,auth-api
+2026-02-26T10:49:07.000Z,INFO,Invoice sent,billing-api
+2026-02-26T15:33:32.000Z,INFO,OAuth token refresh,auth-api
+2026-02-26T17:44:25.000Z,INFO,OAuth token refresh,auth-api
+2026-02-27T00:13:34.000Z,INFO,Tax computed,billing-api
+2026-02-27T00:39:55.000Z,WARN,Stock low,orders-api
+2026-02-27T04:18:52.000Z,INFO,Statement generated,billing-api
+2026-02-27T05:52:24.000Z,INFO,Statement generated,billing-api
+2026-02-27T07:59:15.000Z,INFO,Order updated,orders-api
+2026-02-27T08:41:25.000Z,INFO,Logout,auth-api
+2026-02-27T10:13:02.000Z,INFO,Order cancelled,orders-api
+2026-02-27T14:29:07.000Z,ERROR,Refund failed,billing-api
+2026-02-27T14:39:15.000Z,ERROR,Order fulfillment failed,orders-api
+2026-02-27T15:17:14.000Z,INFO,Statement generated,billing-api
+2026-02-27T17:01:40.000Z,INFO,Order delivered,orders-api
+2026-02-27T18:27:25.000Z,INFO,Logout,auth-api
+2026-02-27T20:43:41.000Z,INFO,Order delivered,orders-api
+2026-02-28T00:40:23.000Z,INFO,Invoice sent,billing-api
+2026-02-28T09:58:00.000Z,INFO,Order created,orders-api
+2026-02-28T21:06:57.000Z,INFO,Order updated,orders-api
+2026-02-28T23:38:49.000Z,INFO,Order created,orders-api
+2026-02-28T23:53:37.000Z,INFO,User login succeeded,auth-api
